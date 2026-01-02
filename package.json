@@ -1,0 +1,21 @@
+{
+  "name": "specforge",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n WEB,API,WORKER -c auto \"pnpm --filter @specforge/web dev\" \"pnpm --filter @specforge/api dev\" \"pnpm --filter @specforge/worker dev\"",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "format": "prettier -w ."
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.5.0"
+  }
+}
