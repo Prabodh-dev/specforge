@@ -1,10 +1,14 @@
+import path from "path";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
+import { prisma } from "./lib/prisma";
+import { env } from "./config/env";
+import { authRouter } from "./routes/auth.routes";
 
-dotenv.config();
+dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
 
 const app = express();
 
@@ -28,3 +32,15 @@ app.get("/health", (_req, res) => {
 app.listen(PORT, () => {
   console.log(`[api] running on http://localhost:${PORT}`);
 });
+
+app.get("/db-check", async (_req, res) => {
+  try {
+    const count = await prisma.user.count();
+    res.json({ ok: true, users: count });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, error: "DB connection failed" });
+  }
+});
+
+app.use("/auth", authRouter);

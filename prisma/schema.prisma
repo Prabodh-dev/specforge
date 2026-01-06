@@ -1,0 +1,253 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum OrgRole {
+  ADMIN
+  PM
+  DEV
+  REVIEWER
+}
+
+enum ArtifactType {
+  PRD
+  USER_STORIES
+  OPENAPI
+  DB_SCHEMA
+  TASK_BREAKDOWN
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ExportType {
+  PRD_MD
+  PRD_PDF
+  OPENAPI_JSON
+  DB_SCHEMA_JSON
+  SCAFFOLD_ZIP
+}
+
+enum ExportStatus {
+  QUEUED
+  PROCESSING
+  DONE
+  FAILED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String?
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships   OrgMember[]
+  projects      Project[]         @relation("ProjectCreator")
+  artifactVers  ArtifactVersion[] @relation("ArtifactVersionCreator")
+  reviewsMade   ReviewItem[]      @relation("ReviewReviewer")
+  reviewCreated ReviewItem[]      @relation("ReviewCreator")
+  auditLogs     AuditLog[]
+  exports       ExportFile[]
+
+  promptVersions PromptVersion[] @relation("PromptVersionCreator")
+  llmRuns        LLMRun[]        @relation("LLMRunCreator")
+}
+
+model Org {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members  OrgMember[]
+  projects Project[]
+  prompts  PromptTemplate[]
+  audits   AuditLog[]
+}
+
+model OrgMember {
+  id        String   @id @default(cuid())
+  orgId     String
+  userId    String
+  role      OrgRole  @default(DEV)
+  createdAt DateTime @default(now())
+
+  org  Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([userId])
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  orgId       String
+  name        String
+  description String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org       Org  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy User @relation("ProjectCreator", fields: [createdById], references: [id])
+
+  artifacts Artifact[]
+  reviews   ReviewItem[]
+  exports   ExportFile[]
+  runs      LLMRun[]
+
+  @@index([orgId])
+}
+
+model Artifact {
+  id        String       @id @default(cuid())
+  projectId String
+  type      ArtifactType
+  title     String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  project  Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versions ArtifactVersion[]
+
+  @@unique([projectId, type])
+  @@index([projectId])
+}
+
+model ArtifactVersion {
+  id          String   @id @default(cuid())
+  artifactId  String
+  version     Int
+  contentText String?
+  contentJson Json?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  artifact  Artifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  createdBy User?    @relation("ArtifactVersionCreator", fields: [createdById], references: [id])
+
+  @@unique([artifactId, version])
+  @@index([artifactId])
+}
+
+model ReviewItem {
+  id           String       @id @default(cuid())
+  projectId    String
+  artifactType ArtifactType
+  status       ReviewStatus @default(PENDING)
+
+  inputJson  Json?
+  outputText String?
+  outputJson Json?
+
+  createdById  String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  reviewerNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy  User?   @relation("ReviewCreator", fields: [createdById], references: [id])
+  reviewedBy User?   @relation("ReviewReviewer", fields: [reviewedById], references: [id])
+
+  @@index([projectId, status])
+}
+
+model PromptTemplate {
+  id          String   @id @default(cuid())
+  orgId       String?
+  key         String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org      Org?            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  versions PromptVersion[]
+
+  @@unique([orgId, key])
+}
+
+model PromptVersion {
+  id          String   @id @default(cuid())
+  templateId  String
+  version     Int
+  promptText  String
+  model       String?
+  temperature Float?
+  jsonSchema  Json?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  template  PromptTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  createdBy User?          @relation("PromptVersionCreator", fields: [createdById], references: [id])
+
+  @@unique([templateId, version])
+  @@index([templateId])
+}
+
+model LLMRun {
+  id              String   @id @default(cuid())
+  projectId       String
+  workflowKey     String
+  promptVersionId String?
+  createdById     String?
+  inputTokens     Int?
+  outputTokens    Int?
+  costUsd         Float?
+  latencyMs       Int?
+  createdAt       DateTime @default(now())
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("LLMRunCreator", fields: [createdById], references: [id])
+
+  @@index([projectId])
+}
+
+model ExportFile {
+  id        String       @id @default(cuid())
+  projectId String
+  type      ExportType
+  status    ExportStatus @default(QUEUED)
+  r2Key     String?
+  publicUrl String?
+  error     String?
+
+  requestedById String?
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestedBy User?   @relation(fields: [requestedById], references: [id])
+
+  @@index([projectId, status])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  orgId      String
+  actorId    String?
+  action     String
+  entityType String?
+  entityId   String?
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  org   Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([orgId, createdAt])
+}
