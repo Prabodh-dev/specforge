@@ -139,7 +139,6 @@ export async function updateMemberRole(req: OrgAuthedRequest, res: Response) {
   if (!parsed.success)
     return res.status(400).json({ ok: false, error: parsed.error.flatten() });
 
-  // prevent removing last admin accidentally
   if (parsed.data.role !== "ADMIN") {
     const adminCount = await prisma.orgMember.count({
       where: { orgId, role: "ADMIN" },
@@ -169,7 +168,6 @@ export async function removeMember(req: OrgAuthedRequest, res: Response) {
   const orgId = req.params.orgId;
   const userId = req.params.userId;
 
-  // prevent deleting last admin
   const member = await prisma.orgMember.findUnique({
     where: { orgId_userId: { orgId, userId } },
     select: { role: true },

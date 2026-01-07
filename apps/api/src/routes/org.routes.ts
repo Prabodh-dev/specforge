@@ -15,19 +15,14 @@ export const orgRouter = Router();
 
 orgRouter.use(requireAuth);
 
-// my orgs
 orgRouter.get("/", listMyOrgs);
 
-// create org (creator becomes ADMIN)
 orgRouter.post("/", createOrg);
 
-// org details (must be member)
 orgRouter.get("/:orgId", requireOrgMember, getOrg);
 
-// members
 orgRouter.get("/:orgId/members", requireOrgMember, listMembers);
 
-// invite (ADMIN only)
 orgRouter.post(
   "/:orgId/invite",
   requireOrgMember,
@@ -35,7 +30,6 @@ orgRouter.post(
   inviteMember
 );
 
-// change role (ADMIN only)
 orgRouter.patch(
   "/:orgId/members/:userId/role",
   requireOrgMember,
@@ -43,7 +37,6 @@ orgRouter.patch(
   updateMemberRole
 );
 
-// remove member (ADMIN only)
 orgRouter.delete(
   "/:orgId/members/:userId",
   requireOrgMember,

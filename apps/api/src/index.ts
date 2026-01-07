@@ -10,6 +10,8 @@ import { authRouter } from "./routes/auth.routes";
 import { orgRouter } from "./routes/org.routes";
 import { projectRouter } from "./routes/project.routes";
 import { artifactRouter } from "./routes/artifact.routes";
+import { workflowRouter } from "./routes/workflow.routes";
+import { reviewRouter } from "./routes/review.routes";
 
 dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
 
@@ -50,3 +52,5 @@ app.use("/auth", authRouter);
 app.use("/orgs", orgRouter);
 app.use("/projects", projectRouter);
 app.use("/artifacts", artifactRouter);
+app.use(workflowRouter);
+app.use(reviewRouter);

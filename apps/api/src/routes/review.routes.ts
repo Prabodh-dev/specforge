@@ -12,10 +12,8 @@ export const reviewRouter = Router();
 reviewRouter.use(requireAuth);
 reviewRouter.use(requireOrgMember);
 
-// any member can view review queue
 reviewRouter.get("/projects/:projectId/reviews", listReviews);
 
-// reviewer/admin can approve/reject
 reviewRouter.patch(
   "/reviews/:reviewId/approve",
   requireRole(["ADMIN", "REVIEWER"]),

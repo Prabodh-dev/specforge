@@ -43,7 +43,6 @@ export async function listReviews(req: OrgAuthedRequest, res: Response) {
 }
 
 const approveSchema = z.object({
-  // reviewer can optionally edit before approving
   outputText: z.string().optional(),
   outputJson: z.any().optional(),
   note: z.string().max(1000).optional(),
@@ -80,7 +79,6 @@ export async function approveReview(req: OrgAuthedRequest, res: Response) {
     return res.status(400).json({ ok: false, error: "No output to approve" });
   }
 
-  // Find the artifact in this project for this type (it already exists from project create)
   const artifact = await prisma.artifact.findUnique({
     where: {
       projectId_type: {
@@ -95,7 +93,6 @@ export async function approveReview(req: OrgAuthedRequest, res: Response) {
       .status(500)
       .json({ ok: false, error: "Artifact missing for this project/type" });
 
-  // Compute next version
   const last = await prisma.artifactVersion.findFirst({
     where: { artifactId: artifact.id },
     orderBy: { version: "desc" },
@@ -103,7 +100,6 @@ export async function approveReview(req: OrgAuthedRequest, res: Response) {
   });
   const nextVersion = (last?.version || 0) + 1;
 
-  // Transaction: create version + mark review approved
   const result = await prisma.$transaction(async (tx) => {
     const version = await tx.artifactVersion.create({
       data: {
