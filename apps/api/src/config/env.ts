@@ -21,4 +21,10 @@ export const env = {
 
   ACCESS_TOKEN_TTL: process.env.ACCESS_TOKEN_TTL || "15m",
   REFRESH_TOKEN_TTL: process.env.REFRESH_TOKEN_TTL || "7d",
+  LLM_PROVIDER: (process.env.LLM_PROVIDER || "mock") as
+    | "mock"
+    | "openai"
+    | "gemini",
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
 } as const;

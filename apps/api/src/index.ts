@@ -7,6 +7,9 @@ import dotenv from "dotenv";
 import { prisma } from "./lib/prisma";
 import { env } from "./config/env";
 import { authRouter } from "./routes/auth.routes";
+import { orgRouter } from "./routes/org.routes";
+import { projectRouter } from "./routes/project.routes";
+import { artifactRouter } from "./routes/artifact.routes";
 
 dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
 
@@ -44,3 +47,6 @@ app.get("/db-check", async (_req, res) => {
 });
 
 app.use("/auth", authRouter);
+app.use("/orgs", orgRouter);
+app.use("/projects", projectRouter);
+app.use("/artifacts", artifactRouter);
