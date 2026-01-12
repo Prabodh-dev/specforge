@@ -21,6 +21,7 @@ export async function runWorkflow(req: OrgAuthedRequest, res: Response) {
     return res.status(400).json({ ok: false, error: "Invalid workflowKey" });
   }
 
+  // Ensure project belongs to org
   const project = await prisma.project.findFirst({
     where: { id: projectId, orgId: req.org!.id },
     select: { id: true },
@@ -38,6 +39,7 @@ export async function runWorkflow(req: OrgAuthedRequest, res: Response) {
   const llmResult = await generateWithLLM(artifactType, parsed.data);
   const latencyMs = Date.now() - t0;
 
+  // Store run metrics
   const run = await prisma.lLMRun.create({
     data: {
       projectId,
@@ -51,6 +53,7 @@ export async function runWorkflow(req: OrgAuthedRequest, res: Response) {
     select: { id: true, createdAt: true },
   });
 
+  // Create review item (PENDING)
   const review = await prisma.reviewItem.create({
     data: {
       projectId,

@@ -72,6 +72,7 @@ export async function mockGenerate(
     };
   }
 
+  // TASK_BREAKDOWN
   return {
     outputText: `# Task Breakdown\n\n## Backend\n- Auth endpoints\n- Org + RBAC\n- Project + artifacts\n- Review queue approve/reject\n\n## Frontend\n- Dashboard\n- Editor\n- Review queue UI\n\n## DevOps\n- Deploy API/Worker on Railway\n- Deploy Web on Vercel\n`,
     meta: base,

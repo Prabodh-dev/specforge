@@ -8,6 +8,7 @@ export const workflowRouter = Router();
 workflowRouter.use(requireAuth);
 workflowRouter.use(requireOrgMember);
 
+// PM/Admin can run generation
 workflowRouter.post(
   "/projects/:projectId/workflows/:workflowKey/run",
   requireRole(["ADMIN", "PM"]),
