@@ -27,4 +27,11 @@ export const env = {
     | "gemini",
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
+  REDIS_URL: must("REDIS_URL"),
+
+  R2_ENDPOINT: process.env.R2_ENDPOINT || "",
+  R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID || "",
+  R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY || "",
+  R2_BUCKET: process.env.R2_BUCKET || "",
+  R2_PUBLIC_BASE_URL: process.env.R2_PUBLIC_BASE_URL || "",
 } as const;

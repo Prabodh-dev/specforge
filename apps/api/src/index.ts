@@ -12,6 +12,7 @@ import { projectRouter } from "./routes/project.routes";
 import { artifactRouter } from "./routes/artifact.routes";
 import { workflowRouter } from "./routes/workflow.routes";
 import { reviewRouter } from "./routes/review.routes";
+import { exportRouter } from "./routes/export.routes";
 
 dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
 
@@ -54,3 +55,4 @@ app.use("/projects", projectRouter);
 app.use("/artifacts", artifactRouter);
 app.use(workflowRouter);
 app.use(reviewRouter);
+app.use(exportRouter);
