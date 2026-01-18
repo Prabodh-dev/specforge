@@ -1,26 +1,17 @@
 import { Router } from "express";
-import { requireAuth } from "../middlewares/auth";
-import { requireOrgMember, requireRole } from "../middlewares/org";
 import {
-  createExport,
-  listExports,
-  getExportDownloadUrl,
+  listProjectExports,
+  requestProjectExport,
+  downloadExport,
 } from "../controllers/export.controller";
 
 export const exportRouter = Router();
 
-exportRouter.use(requireAuth);
-exportRouter.use(requireOrgMember);
+// list exports for a project
+exportRouter.get("/projects/:projectId/exports", listProjectExports);
 
-// PM/Admin can request exports
-exportRouter.post(
-  "/projects/:projectId/exports",
-  requireRole(["ADMIN", "PM"]),
-  createExport
-);
+// request an export for a project
+exportRouter.post("/projects/:projectId/exports", requestProjectExport);
 
-// anyone in org can view exports
-exportRouter.get("/projects/:projectId/exports", listExports);
-
-// signed download url
-exportRouter.get("/exports/:exportId/download-url", getExportDownloadUrl);
+// download (dev/local) or redirect to publicUrl (R2)
+exportRouter.get("/exports/:id/download", downloadExport);

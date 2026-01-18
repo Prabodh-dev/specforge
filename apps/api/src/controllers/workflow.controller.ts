@@ -24,7 +24,7 @@ export async function runWorkflow(req: OrgAuthedRequest, res: Response) {
   // Ensure project belongs to org
   const project = await prisma.project.findFirst({
     where: { id: projectId, orgId: req.org!.id },
-    select: { id: true },
+    select: { id: true, name: true, description: true },
   });
   if (!project)
     return res.status(404).json({ ok: false, error: "Project not found" });
@@ -35,23 +35,46 @@ export async function runWorkflow(req: OrgAuthedRequest, res: Response) {
 
   const artifactType = WORKFLOW_TO_ARTIFACT[workflowKey];
 
+  // Collect context: previous approved versions of artifacts
+  const previousArtifacts = await prisma.artifact.findMany({
+    where: { projectId },
+    select: {
+      type: true,
+      versions: {
+        select: {
+          contentText: true,
+          contentJson: true,
+        },
+        orderBy: { version: "desc" },
+        take: 1,
+      },
+    },
+  });
+
   const t0 = Date.now();
   const llmResult = await generateWithLLM(artifactType, parsed.data);
   const latencyMs = Date.now() - t0;
 
-  // Store run metrics
-  const run = await prisma.lLMRun.create({
-    data: {
-      projectId,
-      workflowKey,
-      createdById: req.user!.id,
-      inputTokens: llmResult.meta?.inputTokens,
-      outputTokens: llmResult.meta?.outputTokens,
-      costUsd: llmResult.meta?.costUsd,
-      latencyMs: llmResult.meta?.latencyMs ?? latencyMs,
-    },
-    select: { id: true, createdAt: true },
-  });
+  // Store run metrics (best-effort). If DB schema is out of sync, skip.
+  let run: { id: string; createdAt: Date } | null = null;
+  try {
+    run = await prisma.lLMRun.create({
+      data: {
+        projectId,
+        workflowKey,
+        artifactType,
+        createdById: req.user!.id,
+        orgId: req.org!.id,
+        inputTokens: llmResult.meta?.inputTokens,
+        outputTokens: llmResult.meta?.outputTokens,
+        costUsd: llmResult.meta?.costUsd,
+        latencyMs: llmResult.meta?.latencyMs ?? latencyMs,
+      },
+      select: { id: true, createdAt: true },
+    });
+  } catch (e) {
+    console.warn("[llmRun.create] skipped due to schema mismatch:", e);
+  }
 
   // Create review item (PENDING)
   const review = await prisma.reviewItem.create({

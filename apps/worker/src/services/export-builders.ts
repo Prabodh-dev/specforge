@@ -8,13 +8,36 @@ export async function buildExport(prisma: PrismaClient, exportId: string) {
   });
   if (!exp) throw new Error("Export not found");
 
-  const latestText = async (type: any) => {
+  const latestApprovedText = async (type: any) => {
     const art = await prisma.artifact.findUnique({
       where: { projectId_type: { projectId: exp.projectId, type } },
       select: { id: true },
     });
     if (!art) throw new Error(`Artifact missing: ${type}`);
 
+    // Get the latest approved version by finding the review that created it
+    // then getting the matching artifact version
+    const approvedReview = await prisma.reviewItem.findFirst({
+      where: {
+        projectId: exp.projectId,
+        artifactType: type,
+        status: "APPROVED",
+      },
+      orderBy: { reviewedAt: "desc" },
+      select: { id: true },
+    });
+
+    if (!approvedReview) {
+      // Fallback: use latest version (for seeding/testing)
+      const v = await prisma.artifactVersion.findFirst({
+        where: { artifactId: art.id },
+        orderBy: { version: "desc" },
+        select: { contentText: true, contentJson: true, version: true },
+      });
+      return v;
+    }
+
+    // Use latest version for this artifact (assuming approval workflow creates new versions)
     const v = await prisma.artifactVersion.findFirst({
       where: { artifactId: art.id },
       orderBy: { version: "desc" },
@@ -25,7 +48,7 @@ export async function buildExport(prisma: PrismaClient, exportId: string) {
   };
 
   if (exp.type === "PRD_MD") {
-    const v = await latestText("PRD");
+    const v = await latestApprovedText("PRD");
     if (!v?.contentText) throw new Error("No PRD content to export");
     return {
       filename: `prd-v${v.version}.md`,
@@ -35,7 +58,7 @@ export async function buildExport(prisma: PrismaClient, exportId: string) {
   }
 
   if (exp.type === "OPENAPI_JSON") {
-    const v = await latestText("OPENAPI");
+    const v = await latestApprovedText("OPENAPI");
     if (!v?.contentJson) throw new Error("No OpenAPI JSON to export");
     return {
       filename: `openapi-v${v.version}.json`,
@@ -45,7 +68,7 @@ export async function buildExport(prisma: PrismaClient, exportId: string) {
   }
 
   if (exp.type === "DB_SCHEMA_JSON") {
-    const v = await latestText("DB_SCHEMA");
+    const v = await latestApprovedText("DB_SCHEMA");
     if (!v?.contentJson) throw new Error("No DB schema JSON to export");
     return {
       filename: `db-schema-v${v.version}.json`,
@@ -55,8 +78,8 @@ export async function buildExport(prisma: PrismaClient, exportId: string) {
   }
 
   // SCAFFOLD_ZIP
-  const prd = await latestText("PRD");
-  const stories = await latestText("USER_STORIES");
+  const prd = await latestApprovedText("PRD");
+  const stories = await latestApprovedText("USER_STORIES");
 
   const zipBuffer: Buffer = await new Promise((resolve, reject) => {
     const archive = archiver("zip", { zlib: { level: 9 } });

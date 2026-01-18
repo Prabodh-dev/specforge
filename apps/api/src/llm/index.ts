@@ -1,20 +1,25 @@
 import { env } from "../config/env";
 import { mockGenerate } from "./mock";
+import { geminiGenerate } from "./gemini";
 import { ArtifactType, LLMResult, WorkflowInput } from "./types";
 
 export async function generateWithLLM(
   type: ArtifactType,
-  input: WorkflowInput
+  input: WorkflowInput,
 ): Promise<LLMResult> {
-  // For now, only mock is implemented. Later we plug OpenAI/Gemini here.
-  if (env.LLM_PROVIDER === "mock") {
+  const provider = (env.LLM_PROVIDER || "gemini").toLowerCase();
+
+  if (provider === "gemini") {
+    return geminiGenerate(type, input);
+  }
+
+  if (provider === "mock") {
     return mockGenerate(type, input);
   }
 
-  // Placeholder so your API doesn’t crash:
-  // You can implement openai/gemini later without changing controllers/routes.
+  // Fallback
   return {
-    outputText: `LLM provider "${env.LLM_PROVIDER}" not implemented yet. Switch LLM_PROVIDER=mock for now.`,
-    meta: { model: env.LLM_PROVIDER },
+    outputText: `LLM provider "${provider}" not supported. Use 'gemini' or 'mock'.`,
+    meta: { model: provider },
   };
 }
