@@ -1,0 +1,5 @@
+-- Rename OPENAPI to API_SPEC in ArtifactType enum
+ALTER TYPE "ArtifactType" RENAME VALUE 'OPENAPI' TO 'API_SPEC';
+
+-- Rename OPENAPI_JSON to API_SPEC_JSON in ExportType enum  
+ALTER TYPE "ExportType" RENAME VALUE 'OPENAPI_JSON' TO 'API_SPEC_JSON';

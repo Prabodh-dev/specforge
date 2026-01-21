@@ -40,7 +40,7 @@ export default function ReviewDetail() {
   const isJson = useMemo(() => {
     const t = item?.artifactType;
     return (
-      t === "OPENAPI" ||
+      t === "API_SPEC" ||
       t === "DB_SCHEMA" ||
       t === "USER_STORIES" ||
       t === "TASK_BREAKDOWN"

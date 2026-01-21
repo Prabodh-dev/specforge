@@ -10,7 +10,7 @@ function workflowMeta(workflowKey: string) {
   switch (workflowKey) {
     case "GENERATE_PRD":
       return { isJson: false };
-    case "GENERATE_OPENAPI":
+    case "GENERATE_API_SPEC":
     case "GENERATE_USER_STORIES":
     case "GENERATE_DB_SCHEMA":
     case "GENERATE_TASK_BREAKDOWN":
@@ -47,7 +47,7 @@ Generate a PRD in Markdown with:
     );
   }
 
-  if (workflowKey === "GENERATE_OPENAPI") {
+  if (workflowKey === "GENERATE_API_SPEC") {
     return (
       base +
       `
@@ -153,7 +153,7 @@ if (connection) {
         throw e;
       }
     },
-    { connection, concurrency: 2 }
+    { connection, concurrency: 2 },
   );
 
   console.log("[worker] LLM queue consumer online");

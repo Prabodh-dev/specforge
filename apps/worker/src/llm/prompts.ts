@@ -33,7 +33,7 @@ Generate a PRD with:
 Generate user stories in the required JSON schema. Keep 10–18 stories.
 `
       );
-    case "GENERATE_OPENAPI":
+    case "GENERATE_API_SPEC":
       return (
         base +
         `

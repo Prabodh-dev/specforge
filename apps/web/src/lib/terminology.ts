@@ -19,7 +19,7 @@ export const TERMINOLOGY = {
       desc: "Break down your product into small, actionable tasks from the user's perspective (e.g., 'As a user, I want to...').",
     },
     {
-      key: "GENERATE_OPENAPI",
+      key: "GENERATE_API_SPEC",
       label: "Create API Specification",
       icon: "🔌",
       desc: "Define all the technical endpoints and data structures your API will expose for developers.",
@@ -46,7 +46,7 @@ export const TERMINOLOGY = {
       desc: "Ready-to-share markdown document explaining your product",
     },
     {
-      type: "OPENAPI_JSON",
+      type: "API_SPEC_JSON",
       label: "🔌 API Specification",
       desc: "Technical spec that developers use to build against your API",
     },

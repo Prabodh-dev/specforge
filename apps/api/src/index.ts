@@ -14,6 +14,7 @@ import { workflowRouter } from "./routes/workflow.routes";
 import { reviewRouter } from "./routes/review.routes";
 import { exportRouter } from "./routes/export.routes";
 import { reviewsRouter } from "./modules/reviews";
+import { checkLLMProvider } from "./llm/index";
 
 dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
 
@@ -46,6 +47,21 @@ app.get("/db-check", async (_req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ ok: false, error: "DB connection failed" });
+  }
+});
+
+app.get("/llm-health", async (_req, res) => {
+  try {
+    const health = await checkLLMProvider();
+    const statusCode = health.status === "ok" ? 200 : 503;
+    res.status(statusCode).json(health);
+  } catch (err) {
+    console.error(err);
+    res.status(503).json({
+      status: "error",
+      provider: "unknown",
+      message: "LLM health check failed",
+    });
   }
 });
 

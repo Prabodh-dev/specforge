@@ -16,9 +16,9 @@ const workflowToArtifact = (key: string) => {
     return { type: "DB_SCHEMA", isJson: true, schemaKey: "DB_SCHEMA" as const };
   if (key === "GENERATE_TASK_BREAKDOWN")
     return { type: "TASKS", isJson: true, schemaKey: "TASKS" as const };
-  // OPENAPI: huge schema, just JSON mode without schema
-  if (key === "GENERATE_OPENAPI")
-    return { type: "OPENAPI", isJson: true, schemaKey: null as any };
+  // API_SPEC: huge schema, just JSON mode without schema
+  if (key === "GENERATE_API_SPEC")
+    return { type: "API_SPEC", isJson: true, schemaKey: null as any };
   throw new Error(`Unknown workflowKey: ${key}`);
 };
 

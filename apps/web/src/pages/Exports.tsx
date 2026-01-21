@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { useOrg } from "../context/OrgContext";
 import { formatApiError } from "../lib/errors";
 
 type ProjectRow = { id: string; name: string; description?: string | null };
+type ArtifactRow = { id: string; type: string; title: string };
+type VersionRow = {
+  id: string;
+  version: number;
+  status: string;
+  createdAt: string;
+};
 type ExportRow = {
   id: string;
   projectId: string;
@@ -15,11 +23,19 @@ type ExportRow = {
   completedAt?: string | null;
 };
 
-const EXPORTS = [
-  { type: "PRD_MD", label: "PRD (Markdown)" },
-  { type: "OPENAPI_JSON", label: "OpenAPI (JSON)" },
-  { type: "DB_SCHEMA_JSON", label: "DB Schema (JSON)" },
-  { type: "SCAFFOLD_ZIP", label: "Scaffold (ZIP)" },
+const EXPORT_TYPES = [
+  { type: "PRD_MD", label: "PRD (Markdown)", artifactType: "PRD" },
+  {
+    type: "API_SPEC_JSON",
+    label: "API Specification (JSON)",
+    artifactType: "API_SPEC",
+  },
+  {
+    type: "DB_SCHEMA_JSON",
+    label: "DB Schema (JSON)",
+    artifactType: "DB_SCHEMA",
+  },
+  { type: "SCAFFOLD_ZIP", label: "Scaffold (ZIP)", artifactType: null },
 ];
 
 function apiBase() {
@@ -27,17 +43,39 @@ function apiBase() {
 }
 
 export default function Exports() {
+  const { token } = useAuth();
   const { orgId } = useOrg();
   const nav = useNavigate();
+
+  // Wizard state
+  const [step, setStep] = useState(1); // 1=Project, 2=Artifact, 3=Version, 4=Download
 
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [projectId, setProjectId] = useState("");
   const [search, setSearch] = useState("");
 
-  const [items, setItems] = useState<ExportRow[]>([]);
+  const [artifacts, setArtifacts] = useState<ArtifactRow[]>([]);
+  const [selectedArtifact, setSelectedArtifact] = useState<ArtifactRow | null>(
+    null,
+  );
+
+  const [versions, setVersions] = useState<VersionRow[]>([]);
+  const [selectedVersion, setSelectedVersion] = useState<VersionRow | null>(
+    null,
+  );
+
+  const [exportType, setExportType] = useState("");
+  const [exportId, setExportId] = useState("");
+  const [exportStatus, setExportStatus] = useState("");
+
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const pollRef = useRef<number | null>(null);
+
+  const selectedProject = useMemo(
+    () => projects.find((p) => p.id === projectId),
+    [projects, projectId],
+  );
 
   const filteredProjects = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -45,16 +83,9 @@ export default function Exports() {
     return projects.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
-        (p.description || "").toLowerCase().includes(q) ||
-        p.id.toLowerCase().includes(q),
+        (p.description || "").toLowerCase().includes(q),
     );
   }, [projects, search]);
-
-  const shouldPoll = useMemo(() => {
-    return items.some(
-      (x) => x.status === "QUEUED" || x.status === "PROCESSING",
-    );
-  }, [items]);
 
   async function loadProjects() {
     if (!orgId) return;
@@ -62,7 +93,7 @@ export default function Exports() {
     try {
       const res = await fetch(`/api/projects?orgId=${orgId}`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       if (!res.ok) throw new Error(await res.text());
@@ -73,49 +104,72 @@ export default function Exports() {
         description: p.description ?? null,
       }));
       setProjects(mapped);
-      if (!projectId && mapped[0]?.id) setProjectId(mapped[0].id);
     } catch (e: any) {
       setErr(formatApiError(e) || "Failed to load projects");
     }
   }
 
-  async function loadExports(pid?: string) {
-    if (!orgId) return;
-    const id = pid || projectId;
-    if (!id) return;
-
+  async function loadArtifacts() {
+    if (!orgId || !projectId) return;
     setErr(null);
     try {
-      const res = await fetch(`/api/projects/${id}/exports`, {
+      const res = await fetch(`/api/projects/${projectId}`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${token}`,
           "X-Org-Id": orgId,
         },
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      setItems(data.items || []);
+      setArtifacts(data.project?.artifacts || []);
     } catch (e: any) {
-      setErr(formatApiError(e) || "Failed to load exports");
+      setErr(formatApiError(e) || "Failed to load artifacts");
     }
   }
 
-  async function requestExport(type: string) {
-    if (!orgId || !projectId) return;
+  async function loadVersions() {
+    if (!orgId || !selectedArtifact) return;
+    setErr(null);
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/artifacts/${selectedArtifact.id}/versions`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-Org-Id": orgId,
+          },
+        },
+      );
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setVersions(data.versions || []);
+    } catch (e: any) {
+      setErr(formatApiError(e) || "Failed to load versions");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function requestExport() {
+    if (!orgId || !projectId || !exportType) return;
     setBusy(true);
     setErr(null);
     try {
       const res = await fetch(`/api/projects/${projectId}/exports`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${token}`,
           "X-Org-Id": orgId,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ type }),
+        body: JSON.stringify({ type: exportType }),
       });
       if (!res.ok) throw new Error(await res.text());
-      await loadExports(projectId);
+      const data = await res.json();
+      setExportId(data.export?.id || "");
+      setExportStatus("QUEUED");
+      startPolling();
     } catch (e: any) {
       setErr(formatApiError(e) || "Failed to request export");
     } finally {
@@ -123,11 +177,34 @@ export default function Exports() {
     }
   }
 
+  async function checkExportStatus() {
+    if (!exportId || !orgId) return;
+    try {
+      const res = await fetch(`/api/projects/${projectId}/exports`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-Org-Id": orgId,
+        },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const exp = (data.items || []).find((x: ExportRow) => x.id === exportId);
+      if (exp) {
+        setExportStatus(exp.status);
+        if (exp.status === "DONE" || exp.status === "FAILED") {
+          stopPolling();
+        }
+      }
+    } catch (e) {
+      console.error("Failed to check export status", e);
+    }
+  }
+
   function startPolling() {
     stopPolling();
     pollRef.current = window.setInterval(() => {
-      loadExports().catch(() => {});
-    }, 2500);
+      checkExportStatus().catch(() => {});
+    }, 2000);
   }
 
   function stopPolling() {
@@ -137,29 +214,44 @@ export default function Exports() {
     }
   }
 
+  function handleNext() {
+    if (step === 1 && projectId) {
+      loadArtifacts();
+      setStep(2);
+    } else if (step === 2 && selectedArtifact) {
+      loadVersions();
+      setStep(3);
+    } else if (step === 3 && selectedVersion) {
+      setStep(4);
+    }
+  }
+
+  function handleBack() {
+    if (step > 1) setStep(step - 1);
+  }
+
+  function resetWizard() {
+    setStep(1);
+    setProjectId("");
+    setSelectedArtifact(null);
+    setSelectedVersion(null);
+    setExportType("");
+    setExportId("");
+    setExportStatus("");
+    stopPolling();
+  }
+
   useEffect(() => {
     loadProjects().catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgId]);
-
-  useEffect(() => {
-    if (!projectId) return;
-    loadExports(projectId).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
-
-  useEffect(() => {
-    if (shouldPoll) startPolling();
-    else stopPolling();
     return () => stopPolling();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldPoll]);
+  }, [orgId]);
 
   return (
     <div
       style={{
         padding: 16,
-        maxWidth: 1100,
+        maxWidth: 900,
         margin: "0 auto",
         fontFamily: "system-ui",
       }}
@@ -190,152 +282,377 @@ export default function Exports() {
 
       {err && <div style={{ marginTop: 12, color: "crimson" }}>{err}</div>}
 
+      {/* Progress Indicator */}
       <div
         style={{
-          marginTop: 12,
-          border: "1px solid #333",
-          borderRadius: 12,
-          padding: 12,
+          marginTop: 20,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
         }}
       >
-        <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
-        >
+        {[1, 2, 3, 4].map((s) => (
+          <div
+            key={s}
+            style={{ display: "flex", alignItems: "center", gap: 8 }}
+          >
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: step >= s ? "#7c7cff" : "#333",
+                color: step >= s ? "#fff" : "#888",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 700,
+              }}
+            >
+              {s}
+            </div>
+            {s < 4 && (
+              <div
+                style={{
+                  width: 40,
+                  height: 2,
+                  background: step > s ? "#7c7cff" : "#333",
+                }}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div
+        style={{
+          marginTop: 8,
+          textAlign: "center",
+          fontSize: 14,
+          opacity: 0.7,
+        }}
+      >
+        {step === 1 && "Step 1: Select Project"}
+        {step === 2 && "Step 2: Select Artifact"}
+        {step === 3 && "Step 3: Select Version"}
+        {step === 4 && "Step 4: Download"}
+      </div>
+
+      {/* Step Content */}
+      <div
+        style={{
+          marginTop: 20,
+          border: "1px solid #333",
+          borderRadius: 12,
+          padding: 24,
+          minHeight: 300,
+        }}
+      >
+        {/* Step 1: Select Project */}
+        {step === 1 && (
           <div>
-            <div style={{ fontWeight: 700 }}>Select Project</div>
+            <h3 style={{ marginTop: 0 }}>Select Project</h3>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search project..."
               style={{
                 width: "100%",
-                marginTop: 8,
-                padding: 10,
+                padding: 12,
                 borderRadius: 10,
                 border: "1px solid #333",
+                marginBottom: 12,
               }}
             />
-
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              style={{
-                width: "100%",
-                marginTop: 8,
-                padding: 10,
-                borderRadius: 10,
-                border: "1px solid #333",
-                background: "transparent",
-              }}
-            >
+            <div style={{ display: "grid", gap: 10 }}>
               {filteredProjects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.id.slice(0, 6)}…)
-                </option>
+                <button
+                  key={p.id}
+                  onClick={() => setProjectId(p.id)}
+                  style={{
+                    padding: 16,
+                    borderRadius: 10,
+                    border: `2px solid ${projectId === p.id ? "#7c7cff" : "#333"}`,
+                    background:
+                      projectId === p.id ? "#7c7cff22" : "transparent",
+                    textAlign: "left",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div style={{ fontWeight: 700 }}>{p.name}</div>
+                  {p.description && (
+                    <div style={{ fontSize: 13, opacity: 0.7, marginTop: 4 }}>
+                      {p.description}
+                    </div>
+                  )}
+                </button>
               ))}
-            </select>
-
-            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.75 }}>
-              {projectId ? `ProjectId: ${projectId}` : "No project selected"}
             </div>
           </div>
+        )}
 
+        {/* Step 2: Select Artifact */}
+        {step === 2 && (
           <div>
-            <div style={{ fontWeight: 700 }}>Actions</div>
-            <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-              <button
-                onClick={() => loadExports()}
-                disabled={!projectId || busy}
-                style={{ padding: "10px 12px" }}
-              >
-                Refresh
-              </button>
-              <button
-                onClick={() => setItems([])}
-                style={{ padding: "10px 12px" }}
-              >
-                Clear
-              </button>
+            <h3 style={{ marginTop: 0 }}>Select Artifact Type</h3>
+            <div style={{ marginBottom: 16, opacity: 0.7 }}>
+              Project: <b>{selectedProject?.name}</b>
             </div>
-
-            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
-              Auto-refresh: <b>{shouldPoll ? "ON" : "OFF"}</b>
+            <div style={{ display: "grid", gap: 10 }}>
+              {EXPORT_TYPES.map((e) => (
+                <button
+                  key={e.type}
+                  onClick={() => {
+                    setExportType(e.type);
+                    const artifact = artifacts.find(
+                      (a) => a.type === e.artifactType,
+                    );
+                    setSelectedArtifact(artifact || null);
+                  }}
+                  style={{
+                    padding: 16,
+                    borderRadius: 10,
+                    border: `2px solid ${exportType === e.type ? "#7c7cff" : "#333"}`,
+                    background:
+                      exportType === e.type ? "#7c7cff22" : "transparent",
+                    textAlign: "left",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div style={{ fontWeight: 700 }}>{e.label}</div>
+                </button>
+              ))}
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Step 3: Select Version */}
+        {step === 3 && (
+          <div>
+            <h3 style={{ marginTop: 0 }}>Select Version</h3>
+            <div style={{ marginBottom: 16, opacity: 0.7 }}>
+              Project: <b>{selectedProject?.name}</b> • Export:{" "}
+              <b>{EXPORT_TYPES.find((e) => e.type === exportType)?.label}</b>
+            </div>
+            {busy ? (
+              <div>Loading versions...</div>
+            ) : versions.length === 0 ? (
+              <div style={{ opacity: 0.7 }}>
+                No versions available. Use latest.
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {versions.map((v) => (
+                  <button
+                    key={v.id}
+                    onClick={() => setSelectedVersion(v)}
+                    style={{
+                      padding: 16,
+                      borderRadius: 10,
+                      border: `2px solid ${selectedVersion?.id === v.id ? "#7c7cff" : "#333"}`,
+                      background:
+                        selectedVersion?.id === v.id
+                          ? "#7c7cff22"
+                          : "transparent",
+                      textAlign: "left",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ fontWeight: 700 }}>Version {v.version}</div>
+                    <div style={{ fontSize: 13, opacity: 0.7, marginTop: 4 }}>
+                      {v.status} • {new Date(v.createdAt).toLocaleString()}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {versions.length === 0 && (
+              <button
+                onClick={() =>
+                  setSelectedVersion({
+                    id: "latest",
+                    version: 0,
+                    status: "LATEST",
+                    createdAt: new Date().toISOString(),
+                  })
+                }
+                style={{
+                  padding: 16,
+                  borderRadius: 10,
+                  border: "2px solid #7c7cff",
+                  background: "#7c7cff22",
+                  width: "100%",
+                }}
+              >
+                Use Latest Version
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Step 4: Download */}
+        {step === 4 && (
+          <div>
+            <h3 style={{ marginTop: 0 }}>Download Export</h3>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ opacity: 0.7, marginBottom: 8 }}>
+                Project: <b>{selectedProject?.name}</b>
+              </div>
+              <div style={{ opacity: 0.7, marginBottom: 8 }}>
+                Export Type:{" "}
+                <b>{EXPORT_TYPES.find((e) => e.type === exportType)?.label}</b>
+              </div>
+              <div style={{ opacity: 0.7 }}>
+                Version: <b>{selectedVersion?.version || "Latest"}</b>
+              </div>
+            </div>
+
+            {!exportId ? (
+              <button
+                onClick={requestExport}
+                disabled={busy}
+                style={{
+                  padding: 16,
+                  borderRadius: 10,
+                  border: "2px solid #7c7cff",
+                  background: "#7c7cff",
+                  color: "#fff",
+                  fontWeight: 700,
+                  width: "100%",
+                  cursor: "pointer",
+                }}
+              >
+                {busy ? "Generating..." : "Generate Export"}
+              </button>
+            ) : (
+              <div>
+                <div
+                  style={{
+                    padding: 16,
+                    borderRadius: 10,
+                    border: "1px solid #333",
+                    marginBottom: 16,
+                  }}
+                >
+                  <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                    Status:{" "}
+                    <span
+                      style={{
+                        color: exportStatus === "DONE" ? "#4ade80" : "#fbbf24",
+                      }}
+                    >
+                      {exportStatus}
+                    </span>
+                  </div>
+                  {exportStatus === "QUEUED" && (
+                    <div style={{ opacity: 0.7 }}>
+                      Export is queued for processing...
+                    </div>
+                  )}
+                  {exportStatus === "PROCESSING" && (
+                    <div style={{ opacity: 0.7 }}>
+                      Processing your export...
+                    </div>
+                  )}
+                  {exportStatus === "DONE" && (
+                    <a
+                      href={`${apiBase()}/exports/${exportId}/download`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: "inline-block",
+                        marginTop: 12,
+                        padding: 12,
+                        background: "#4ade80",
+                        color: "#000",
+                        borderRadius: 8,
+                        fontWeight: 700,
+                        textDecoration: "none",
+                      }}
+                    >
+                      📥 Download Now
+                    </a>
+                  )}
+                  {exportStatus === "FAILED" && (
+                    <div style={{ color: "crimson" }}>
+                      Export failed. Please try again.
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={resetWizard}
+                  style={{
+                    padding: 12,
+                    borderRadius: 10,
+                    border: "1px solid #333",
+                    background: "transparent",
+                    width: "100%",
+                  }}
+                >
+                  Start New Export
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
+      {/* Navigation Buttons */}
       <div
         style={{
-          marginTop: 12,
-          display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
-          gap: 10,
+          marginTop: 20,
+          display: "flex",
+          justifyContent: "space-between",
         }}
       >
-        {EXPORTS.map((e) => (
-          <button
-            key={e.type}
-            disabled={!projectId || busy}
-            onClick={() => requestExport(e.type)}
-            style={{
-              padding: 12,
-              borderRadius: 12,
-              border: "1px solid #333",
-              background: "transparent",
-            }}
-          >
-            {e.label}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
-        {items.map((x) => (
-          <div
-            key={x.id}
-            style={{
-              border: "1px solid #333",
-              borderRadius: 12,
-              padding: 12,
-              display: "flex",
-              justifyContent: "space-between",
-              gap: 10,
-              alignItems: "center",
-            }}
-          >
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 800 }}>
-                {x.type} • <span style={{ opacity: 0.8 }}>{x.status}</span>
-              </div>
-              <div style={{ fontSize: 12, opacity: 0.75 }}>
-                {new Date(x.createdAt).toLocaleString()}
-                {x.completedAt
-                  ? ` • done ${new Date(x.completedAt).toLocaleString()}`
-                  : ""}
-              </div>
-              {x.error && (
-                <div style={{ color: "crimson", marginTop: 6 }}>{x.error}</div>
-              )}
-            </div>
-
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              {x.status === "DONE" && (
-                <a
-                  href={`${apiBase()}/exports/${x.id}/download`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Download
-                </a>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {items.length === 0 && (
-          <div style={{ opacity: 0.7 }}>No exports yet for this project.</div>
-        )}
+        <button
+          onClick={handleBack}
+          disabled={step === 1}
+          style={{
+            padding: "12px 24px",
+            borderRadius: 10,
+            border: "1px solid #333",
+            background: "transparent",
+            opacity: step === 1 ? 0.5 : 1,
+            cursor: step === 1 ? "not-allowed" : "pointer",
+          }}
+        >
+          ← Back
+        </button>
+        <button
+          onClick={handleNext}
+          disabled={
+            (step === 1 && !projectId) ||
+            (step === 2 && !exportType) ||
+            (step === 3 && !selectedVersion) ||
+            step === 4
+          }
+          style={{
+            padding: "12px 24px",
+            borderRadius: 10,
+            border: "2px solid #7c7cff",
+            background: "#7c7cff",
+            color: "#fff",
+            fontWeight: 700,
+            opacity:
+              (step === 1 && !projectId) ||
+              (step === 2 && !exportType) ||
+              (step === 3 && !selectedVersion) ||
+              step === 4
+                ? 0.5
+                : 1,
+            cursor:
+              (step === 1 && !projectId) ||
+              (step === 2 && !exportType) ||
+              (step === 3 && !selectedVersion) ||
+              step === 4
+                ? "not-allowed"
+                : "pointer",
+          }}
+        >
+          Next →
+        </button>
       </div>
     </div>
   );

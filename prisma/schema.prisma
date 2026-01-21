@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum OrgRole {
@@ -18,7 +17,7 @@ enum OrgRole {
 enum ArtifactType {
   PRD
   USER_STORIES
-  OPENAPI
+  API_SPEC
   DB_SCHEMA
   TASK_BREAKDOWN
 }
@@ -32,7 +31,7 @@ enum ReviewStatus {
 enum ExportType {
   PRD_MD
   PRD_PDF
-  OPENAPI_JSON
+  API_SPEC_JSON
   DB_SCHEMA_JSON
   SCAFFOLD_ZIP
 }
@@ -128,6 +127,7 @@ model Artifact {
 
   project  Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   versions ArtifactVersion[]
+  reviews  ReviewItem[]
 
   @@unique([projectId, type])
   @@index([projectId])
@@ -152,32 +152,29 @@ model ArtifactVersion {
 model ReviewItem {
   id           String       @id @default(cuid())
   projectId    String
+  artifactId   String?
   artifactType ArtifactType
   status       ReviewStatus @default(PENDING)
+  reviewerNote String?
+  reviewedById String?
+  reviewedAt   DateTime?
 
-  // optional 1-1 link to the run that produced this review
-  llmRunId String? @unique
-
-  inputJson  Json?
+  inputJson  Json
   outputText String?
   outputJson Json?
 
-  createdById  String?
-  reviewedById String?
-  reviewedAt   DateTime?
-  reviewerNote String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artifact  Artifact? @relation(fields: [artifactId], references: [id], onDelete: SetNull)
+  createdBy User?     @relation("ReviewCreator", fields: [createdById], references: [id])
+  reviewedBy User?    @relation("ReviewReviewer", fields: [reviewedById], references: [id])
 
-  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy  User?   @relation("ReviewCreator", fields: [createdById], references: [id])
-  reviewedBy User?   @relation("ReviewReviewer", fields: [reviewedById], references: [id])
-
-  llmRun LLMRun? @relation(fields: [llmRunId], references: [id], onDelete: SetNull)
-
+  @@index([projectId])
   @@index([projectId, status])
-  @@index([projectId, artifactType])
+  @@index([reviewedById])
 }
 
 model PromptTemplate {
@@ -215,9 +212,8 @@ model PromptVersion {
 model LLMRun {
   id String @id @default(cuid())
 
-  orgId        String?
   projectId    String
-  artifactType ArtifactType
+  artifactType ArtifactType?
   workflowKey  String
   status       LLMRunStatus @default(QUEUED)
 
@@ -241,9 +237,6 @@ model LLMRun {
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdBy User?   @relation("LLMRunCreator", fields: [createdById], references: [id])
 
-  reviewItem ReviewItem?
-
-  @@index([orgId])
   @@index([projectId])
   @@index([projectId, status])
   @@index([projectId, artifactType])

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { useOrg } from "../context/OrgContext";
 import { TERMINOLOGY, getReviewStatusLabel } from "../lib/terminology";
 import { LoadingSpinner, Badge } from "../components/common";
@@ -17,6 +18,7 @@ type ReviewRow = {
 };
 
 export default function Reviews() {
+  const { token } = useAuth();
   const { orgId } = useOrg();
   const nav = useNavigate();
 
@@ -31,14 +33,28 @@ export default function Reviews() {
     try {
       const res = await fetch(`/api/reviews`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${token}`,
           "X-Org-Id": orgId,
         },
       });
-      if (!res.ok) throw new Error(await res.text());
+
+      // Check content type before parsing
+      const contentType = res.headers.get("content-type");
+      if (!contentType?.includes("application/json")) {
+        throw new Error(
+          `Expected JSON response but got ${contentType}. Status: ${res.status}`,
+        );
+      }
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Request failed with status ${res.status}`);
+      }
+
       const data = await res.json();
       setItems(data.items || []);
     } catch (e: any) {
+      console.error("Reviews fetch error:", e);
       setErr(formatApiError(e) || "Failed to load approvals");
     } finally {
       setLoading(false);

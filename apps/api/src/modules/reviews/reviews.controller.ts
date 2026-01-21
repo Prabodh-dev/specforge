@@ -22,7 +22,7 @@ function getOrgId(req: AuthedRequest): string {
 
 function isJsonArtifact(type: string) {
   return (
-    type === "OPENAPI" ||
+    type === "API_SPEC" ||
     type === "DB_SCHEMA" ||
     type === "USER_STORIES" ||
     type === "TASK_BREAKDOWN"
@@ -151,6 +151,15 @@ export async function approveReview(req: AuthedRequest, res: Response) {
 
     const review = await prisma.reviewItem.findFirst({
       where: { id: req.params.id, project: { orgId } },
+      select: {
+        id: true,
+        projectId: true,
+        artifactType: true,
+        status: true,
+        outputText: true,
+        outputJson: true,
+        createdAt: true,
+      },
     });
 
     if (!review)

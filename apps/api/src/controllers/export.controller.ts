@@ -3,6 +3,7 @@ import fs from "fs";
 import type { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { enqueueExport } from "../queues/exports.queue";
+import { processExportDirectly } from "../services/export-processor";
 
 type AuthedReq = Request & { user?: { id: string }; orgId?: string };
 
@@ -66,7 +67,30 @@ export async function requestProjectExport(req: AuthedReq, res: Response) {
     },
   });
 
-  await enqueueExport(created.id);
+  const queued = await enqueueExport(created.id);
+
+  // If Redis not available, process directly
+  if (!queued) {
+    console.log("[exports] Redis not available, processing directly");
+    console.log(
+      "[exports] Export ID:",
+      created.id,
+      "Project ID:",
+      projectId,
+      "Type:",
+      type,
+    );
+    try {
+      await processExportDirectly(created.id);
+      console.log("[exports] Direct processing completed successfully");
+    } catch (err: any) {
+      console.error("[exports] Direct processing failed:", err);
+      console.error("[exports] Error stack:", err.stack);
+      return res
+        .status(500)
+        .json({ ok: false, error: err.message || "Export processing failed" });
+    }
+  }
 
   res.json({ ok: true, export: created });
 }
@@ -98,7 +122,7 @@ export async function downloadExport(req: AuthedReq, res: Response) {
   const localPath = path.resolve(
     process.cwd(),
     "../../tmp/exports",
-    file.r2Key
+    file.r2Key,
   );
 
   if (!fs.existsSync(localPath))

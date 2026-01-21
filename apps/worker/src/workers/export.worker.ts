@@ -46,9 +46,9 @@ async function buildExportBuffer(projectId: string, type: string) {
     };
   }
 
-  if (type === "OPENAPI_JSON") {
-    const a = await getLatestArtifact(projectId, "OPENAPI");
-    if (!a?.contentJson) throw new Error("No OPENAPI JSON to export");
+  if (type === "API_SPEC_JSON") {
+    const a = await getLatestArtifact(projectId, "API_SPEC");
+    if (!a?.contentJson) throw new Error("No API_SPEC JSON to export");
     return {
       buf: asJsonFile(a.contentJson),
       contentType: "application/json",
@@ -71,7 +71,7 @@ async function buildExportBuffer(projectId: string, type: string) {
 
     const prd = await getLatestArtifact(projectId, "PRD");
     const stories = await getLatestArtifact(projectId, "USER_STORIES");
-    const openapi = await getLatestArtifact(projectId, "OPENAPI");
+    const openapi = await getLatestArtifact(projectId, "API_SPEC");
     const db = await getLatestArtifact(projectId, "DB_SCHEMA");
     const tasks = await getLatestArtifact(projectId, "TASK_BREAKDOWN");
 
@@ -94,14 +94,14 @@ pnpm dev
 - spec/openapi.json
 - spec/db_schema.json
 - spec/tasks.json
-`
+`,
     );
 
     zip.file(
       "pnpm-workspace.yaml",
       `packages:
   - apps/*
-`
+`,
     );
 
     zip.file(
@@ -118,8 +118,8 @@ pnpm dev
           },
         },
         null,
-        2
-      )
+        2,
+      ),
     );
 
     zip.file(
@@ -129,26 +129,26 @@ API_PORT=4000
 
 # Optional: if you later add DB
 DATABASE_URL="postgresql://user:pass@localhost:5432/app"
-`
+`,
     );
 
     // --- Artifacts output ---
     zip.file("docs/prd.md", prd?.contentText ?? "");
     zip.file(
       "docs/user_stories.json",
-      JSON.stringify(stories?.contentJson ?? {}, null, 2)
+      JSON.stringify(stories?.contentJson ?? {}, null, 2),
     );
     zip.file(
       "spec/openapi.json",
-      JSON.stringify(openapi?.contentJson ?? {}, null, 2)
+      JSON.stringify(openapi?.contentJson ?? {}, null, 2),
     );
     zip.file(
       "spec/db_schema.json",
-      JSON.stringify(db?.contentJson ?? {}, null, 2)
+      JSON.stringify(db?.contentJson ?? {}, null, 2),
     );
     zip.file(
       "spec/tasks.json",
-      JSON.stringify(tasks?.contentJson ?? {}, null, 2)
+      JSON.stringify(tasks?.contentJson ?? {}, null, 2),
     );
 
     // --- API (Express + TS) ---
@@ -178,8 +178,8 @@ DATABASE_URL="postgresql://user:pass@localhost:5432/app"
           },
         },
         null,
-        2
-      )
+        2,
+      ),
     );
 
     zip.file(
@@ -198,8 +198,8 @@ DATABASE_URL="postgresql://user:pass@localhost:5432/app"
           include: ["src"],
         },
         null,
-        2
-      )
+        2,
+      ),
     );
 
     zip.file(
@@ -225,7 +225,7 @@ app.get("/openapi.json", (_req, res) => {
 });
 
 app.listen(PORT, () => console.log(\`[api] running on http://localhost:\${PORT}\`));
-`
+`,
     );
 
     // --- Web (Vite + React) ---
@@ -255,8 +255,8 @@ app.listen(PORT, () => console.log(\`[api] running on http://localhost:\${PORT}\
           },
         },
         null,
-        2
-      )
+        2,
+      ),
     );
 
     zip.file(
@@ -275,8 +275,8 @@ app.listen(PORT, () => console.log(\`[api] running on http://localhost:\${PORT}\
           include: ["src"],
         },
         null,
-        2
-      )
+        2,
+      ),
     );
 
     zip.file(
@@ -284,7 +284,7 @@ app.listen(PORT, () => console.log(\`[api] running on http://localhost:\${PORT}\
       `import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 export default defineConfig({ plugins: [react()] });
-`
+`,
     );
 
     zip.file(
@@ -301,7 +301,7 @@ export default defineConfig({ plugins: [react()] });
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-`
+`,
     );
 
     zip.file(
@@ -314,7 +314,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <App />
   </React.StrictMode>
 );
-`
+`,
     );
 
     zip.file(
@@ -335,7 +335,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </div>
   );
 }
-`
+`,
     );
 
     const buf = await zip.generateAsync({ type: "nodebuffer" });
@@ -371,7 +371,7 @@ export function startExportWorker() {
       try {
         const { buf, contentType, ext } = await buildExportBuffer(
           file.projectId,
-          file.type
+          file.type,
         );
 
         const key = `exports/${file.projectId}/${exportId}.${ext}`;
@@ -416,11 +416,11 @@ export function startExportWorker() {
         throw e;
       }
     },
-    { connection }
+    { connection },
   );
 
   worker.on("ready", () => console.log("[worker] export worker ready"));
   worker.on("failed", (_job, err) =>
-    console.log("[worker] export failed", err?.message)
+    console.log("[worker] export failed", err?.message),
   );
 }

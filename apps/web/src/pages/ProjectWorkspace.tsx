@@ -17,9 +17,9 @@ const WORKFLOWS = [
     artifactType: "USER_STORIES",
   },
   {
-    key: "GENERATE_OPENAPI",
-    label: "Generate OpenAPI",
-    artifactType: "OPENAPI",
+    key: "GENERATE_API_SPEC",
+    label: "Generate API Specification",
+    artifactType: "API_SPEC",
   },
   {
     key: "GENERATE_DB_SCHEMA",
@@ -35,7 +35,7 @@ const WORKFLOWS = [
 
 const EXPORTS = [
   { type: "PRD_MD", label: "PRD (Markdown)" },
-  { type: "OPENAPI_JSON", label: "OpenAPI (JSON)" },
+  { type: "API_SPEC_JSON", label: "API Specification (JSON)" },
   { type: "DB_SCHEMA_JSON", label: "DB Schema (JSON)" },
   { type: "SCAFFOLD_ZIP", label: "Scaffold (ZIP)" },
 ] as const;
@@ -70,7 +70,7 @@ type ExportRow = {
 
 function isJsonType(type: string) {
   return (
-    type === "OPENAPI" ||
+    type === "API_SPEC" ||
     type === "DB_SCHEMA" ||
     type === "USER_STORIES" ||
     type === "TASK_BREAKDOWN"
@@ -456,101 +456,6 @@ export default function ProjectWorkspace() {
           </div>
         </div>
 
-        {/* Export Panel */}
-        <div
-          style={{
-            marginTop: 14,
-            padding: 12,
-            border: "1px solid #333",
-            borderRadius: 12,
-          }}
-        >
-          <div
-            style={{
-              fontWeight: 800,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <span style={{ display: "flex", alignItems: "center" }}>
-              Download Your Work
-              <InfoTooltip text="Export your specifications in various formats. Choose markdown for sharing, JSON for developer tools, or a code starter pack with boilerplate." />
-            </span>
-            <button
-              onClick={() => projectId && loadExports(projectId)}
-              disabled={!projectId}
-              style={{ padding: "6px 10px" }}
-            >
-              Refresh
-            </button>
-          </div>
-
-          <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-            {EXPORTS.map((e) => {
-              const desc = getExportDescription(e.type);
-              return (
-                <div key={e.type}>
-                  <button
-                    onClick={() => requestExport(e.type)}
-                    disabled={exportBusy}
-                    style={{ padding: "10px 12px", width: "100%" }}
-                  >
-                    {exportBusy ? "Working..." : `Generate ${e.label}`}
-                  </button>
-                  {desc && (
-                    <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
-                      {desc}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
-            Auto-refresh: <b>{shouldPollExports ? "ON" : "OFF"}</b>
-          </div>
-
-          <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-            {exportsList.slice(0, 5).map((x) => (
-              <div
-                key={x.id}
-                style={{
-                  border: "1px solid #333",
-                  borderRadius: 10,
-                  padding: 10,
-                }}
-              >
-                <div style={{ fontWeight: 700, fontSize: 13 }}>
-                  {x.type} • <span style={{ opacity: 0.8 }}>{x.status}</span>
-                </div>
-                <div style={{ fontSize: 12, opacity: 0.75 }}>
-                  {new Date(x.createdAt).toLocaleString()}
-                </div>
-                {x.error && (
-                  <div style={{ color: "crimson", marginTop: 6 }}>
-                    {x.error}
-                  </div>
-                )}
-                {x.status === "DONE" && (
-                  <a
-                    href={`${apiBase()}/exports/${x.id}/download`}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ display: "inline-block", marginTop: 8 }}
-                  >
-                    Download
-                  </a>
-                )}
-              </div>
-            ))}
-            {exportsList.length === 0 && (
-              <div style={{ opacity: 0.7 }}>No exports yet.</div>
-            )}
-          </div>
-        </div>
-
         {/* Artifacts */}
         <div style={{ marginTop: 14, fontWeight: 700 }}>Artifacts</div>
         <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
@@ -580,7 +485,7 @@ export default function ProjectWorkspace() {
         </div>
 
         <div style={{ marginTop: 16, fontSize: 13, opacity: 0.8 }}>
-          Tip: JSON artifacts (OPENAPI/DB_SCHEMA/USER_STORIES/TASK_BREAKDOWN)
+          Tip: JSON artifacts (API_SPEC/DB_SCHEMA/USER_STORIES/TASK_BREAKDOWN)
           require valid JSON to save.
         </div>
       </div>

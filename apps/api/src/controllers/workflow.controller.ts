@@ -62,9 +62,7 @@ export async function runWorkflow(req: OrgAuthedRequest, res: Response) {
       data: {
         projectId,
         workflowKey,
-        artifactType,
         createdById: req.user!.id,
-        orgId: req.org!.id,
         inputTokens: llmResult.meta?.inputTokens,
         outputTokens: llmResult.meta?.outputTokens,
         costUsd: llmResult.meta?.costUsd,

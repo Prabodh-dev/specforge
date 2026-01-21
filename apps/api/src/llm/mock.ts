@@ -2,7 +2,7 @@ import { ArtifactType, LLMResult, WorkflowInput } from "./types";
 
 export async function mockGenerate(
   type: ArtifactType,
-  input: WorkflowInput
+  input: WorkflowInput,
 ): Promise<LLMResult> {
   const base = {
     model: "mock-llm",
@@ -26,7 +26,7 @@ export async function mockGenerate(
     };
   }
 
-  if (type === "OPENAPI") {
+  if (type === "API_SPEC") {
     return {
       outputJson: {
         openapi: "3.0.3",

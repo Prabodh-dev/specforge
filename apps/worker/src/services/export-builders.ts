@@ -57,9 +57,9 @@ export async function buildExport(prisma: PrismaClient, exportId: string) {
     };
   }
 
-  if (exp.type === "OPENAPI_JSON") {
-    const v = await latestApprovedText("OPENAPI");
-    if (!v?.contentJson) throw new Error("No OpenAPI JSON to export");
+  if (exp.type === "API_SPEC_JSON") {
+    const v = await latestApprovedText("API_SPEC");
+    if (!v?.contentJson) throw new Error("No API Spec JSON to export");
     return {
       filename: `openapi-v${v.version}.json`,
       contentType: "application/json; charset=utf-8",

@@ -25,7 +25,7 @@ export async function createProject(req: OrgAuthedRequest, res: Response) {
         create: [
           { type: "PRD", title: "Product Requirement Document" },
           { type: "USER_STORIES", title: "User Stories" },
-          { type: "OPENAPI", title: "API Specification (OpenAPI)" },
+          { type: "API_SPEC", title: "API Specification" },
           { type: "DB_SCHEMA", title: "Database Schema" },
           { type: "TASK_BREAKDOWN", title: "Task Breakdown" },
         ],
@@ -53,6 +53,7 @@ export async function listProjects(req: OrgAuthedRequest, res: Response) {
       description: true,
       createdAt: true,
       updatedAt: true,
+      artifacts: { select: { id: true, type: true, title: true } },
     },
     orderBy: { updatedAt: "desc" },
   });

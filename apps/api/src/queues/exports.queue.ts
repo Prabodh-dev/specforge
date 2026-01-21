@@ -11,7 +11,7 @@ export const exportQueue = connection
 export async function enqueueExport(exportId: string) {
   if (!exportQueue) {
     console.warn("[exports] Queue not available - Redis not connected");
-    return;
+    return false;
   }
   await exportQueue.add(
     "process",
@@ -21,6 +21,7 @@ export async function enqueueExport(exportId: string) {
       backoff: { type: "exponential", delay: 3000 },
       removeOnComplete: 500,
       removeOnFail: 500,
-    }
+    },
   );
+  return true;
 }

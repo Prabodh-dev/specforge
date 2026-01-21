@@ -7,12 +7,12 @@ function workflowToArtifactType(workflowKey: string) {
       return "PRD";
     case "GENERATE_USER_STORIES":
       return "USER_STORIES";
-    case "GENERATE_OPENAPI":
-      return "OPENAPI";
+    case "GENERATE_API_SPEC":
+      return "API_SPEC";
     case "GENERATE_DB_SCHEMA":
       return "DB_SCHEMA";
     case "GENERATE_TASK_BREAKDOWN":
-      return "TASKS";
+      return "TASK_BREAKDOWN";
     default:
       throw new Error("Invalid workflowKey");
   }
@@ -39,9 +39,7 @@ export async function runWorkflow(req: any, res: any) {
 
   const run = await prisma.lLMRun.create({
     data: {
-      orgId,
       projectId,
-      artifactId: artifact.id,
       workflowKey,
       status: "QUEUED",
       inputText: idea,

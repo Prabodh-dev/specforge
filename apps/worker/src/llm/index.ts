@@ -1,14 +1,14 @@
-import { geminiGenerate } from "./gemini";
+import { ollamaGenerate } from "./ollama";
 
 export async function llmGenerate(opts: { prompt: string; jsonSchema?: any }) {
-  const provider = (process.env.LLM_PROVIDER || "gemini").toLowerCase();
-  if (provider !== "gemini")
-    throw new Error(`Unsupported LLM_PROVIDER: ${provider}`);
+  const provider = (process.env.LLM_PROVIDER || "ollama").toLowerCase();
 
-  const model = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
-  return geminiGenerate({
-    model,
-    prompt: opts.prompt,
-    jsonSchema: opts.jsonSchema,
-  });
+  if (provider === "ollama") {
+    return ollamaGenerate({
+      prompt: opts.prompt,
+      jsonSchema: opts.jsonSchema,
+    });
+  }
+
+  throw new Error(`Unsupported LLM_PROVIDER: ${provider}. Use 'ollama'.`);
 }

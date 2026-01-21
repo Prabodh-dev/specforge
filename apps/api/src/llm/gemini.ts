@@ -130,7 +130,7 @@ As a [user type], I want to [action] so that [benefit].
 Include at least 5 user stories.`;
   }
 
-  if (type === "OPENAPI") {
+  if (type === "API_SPEC") {
     return `${base}
 
 Generate a complete OpenAPI 3.0.3 specification in JSON format with:
