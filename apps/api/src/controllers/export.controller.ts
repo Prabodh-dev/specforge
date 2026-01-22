@@ -1,9 +1,7 @@
-import path from "path";
-import fs from "fs";
 import type { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { enqueueExport } from "../queues/exports.queue";
 import { processExportDirectly } from "../services/export-processor";
+import { getObjectFromR2 } from "../lib/r2";
 
 type AuthedReq = Request & { user?: { id: string }; orgId?: string };
 
@@ -67,35 +65,70 @@ export async function requestProjectExport(req: AuthedReq, res: Response) {
     },
   });
 
-  const queued = await enqueueExport(created.id);
+  // R2-only mode: process directly in background (no queue)
+  processExportDirectly(created.id).catch((err: any) => {
+    console.error("[exports] Direct processing failed:", err);
+  });
 
-  // If Redis not available, process directly
-  if (!queued) {
-    console.log("[exports] Redis not available, processing directly");
-    console.log(
-      "[exports] Export ID:",
-      created.id,
-      "Project ID:",
-      projectId,
-      "Type:",
-      type,
-    );
-    try {
-      await processExportDirectly(created.id);
-      console.log("[exports] Direct processing completed successfully");
-    } catch (err: any) {
-      console.error("[exports] Direct processing failed:", err);
-      console.error("[exports] Error stack:", err.stack);
-      return res
-        .status(500)
-        .json({ ok: false, error: err.message || "Export processing failed" });
-    }
-  }
-
+  // Return immediately with QUEUED status - UI will poll for completion
   res.json({ ok: true, export: created });
 }
 
 export async function downloadExport(req: AuthedReq, res: Response) {
+  const { id } = req.params;
+  console.log(`[exports.downloadExport] Called with id=${id}`);
+  console.log(
+    `[exports.downloadExport] req.path=${req.path}, req.url=${req.url}`,
+  );
+  console.log(`[exports.downloadExport] Headers:`, req.headers);
+
+  const file = await prisma.exportFile.findFirst({
+    where: { id },
+    include: { project: true },
+  });
+
+  if (!file) {
+    console.log(`[exports] Export ${id} not found`);
+    return res.status(404).json({ ok: false, error: "Export not found" });
+  }
+  if (file.status !== "DONE") {
+    console.log(`[exports] Export ${id} not ready, status=${file.status}`);
+    return res.status(400).json({ ok: false, error: "Export not ready" });
+  }
+
+  // R2-only: must have public URL
+  if (!file.publicUrl) {
+    console.log(`[exports] Export ${id} has no publicUrl`);
+    return res.status(400).json({
+      ok: false,
+      error: "Export not yet available in R2. Please check back in a moment.",
+    });
+  }
+
+  // Stream from R2 to avoid browser CORS on redirect
+  try {
+    const r2Key = file.r2Key || file.publicUrl?.split("/").slice(-3).join("/");
+    console.log(`[exports] Streaming from R2 key=${r2Key}`);
+    const obj = await getObjectFromR2(r2Key!);
+    const filename =
+      file.r2Key?.split("/").pop() ||
+      file.publicUrl?.split("/").pop() ||
+      "export";
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${encodeURIComponent(filename)}"`,
+    );
+    if (obj.ContentType) res.setHeader("Content-Type", obj.ContentType);
+    // @ts-ignore - Body is a stream in node
+    obj.Body.pipe(res);
+  } catch (e) {
+    console.error(`[exports] Failed to stream from R2`, e);
+    return res.status(500).json({ ok: false, error: "Failed to fetch file" });
+  }
+}
+
+// New: fetch single export by id (org-scoped)
+export async function getExport(req: AuthedReq, res: Response) {
   const orgId = getOrgId(req);
   const { id } = req.params;
 
@@ -104,29 +137,9 @@ export async function downloadExport(req: AuthedReq, res: Response) {
 
   const file = await prisma.exportFile.findFirst({
     where: { id, project: { orgId } },
-    include: { project: true },
   });
 
-  if (!file)
-    return res.status(404).json({ ok: false, error: "Export not found" });
-  if (file.status !== "DONE")
-    return res.status(400).json({ ok: false, error: "Export not ready" });
+  if (!file) return res.status(404).json({ ok: false, error: "Not found" });
 
-  // if uploaded to R2/public URL
-  if (file.publicUrl) return res.redirect(file.publicUrl);
-
-  // local dev fallback
-  if (!file.r2Key)
-    return res.status(400).json({ ok: false, error: "No file key" });
-
-  const localPath = path.resolve(
-    process.cwd(),
-    "../../tmp/exports",
-    file.r2Key,
-  );
-
-  if (!fs.existsSync(localPath))
-    return res.status(404).json({ ok: false, error: "File missing on disk" });
-
-  return res.download(localPath);
+  return res.json({ ok: true, export: file });
 }

@@ -2,6 +2,7 @@ import { prisma } from "../lib/prisma";
 import * as fs from "fs/promises";
 import * as path from "path";
 import JSZip from "jszip";
+import { r2Enabled, uploadToR2, getPublicUrl } from "../lib/r2";
 
 /**
  * Get the latest artifact version for a project and type.
@@ -30,6 +31,12 @@ export async function processExportDirectly(exportId: string) {
   try {
     console.log(`[exports] Processing export ${exportId} directly`);
 
+    if (!r2Enabled()) {
+      throw new Error(
+        "R2 is not configured. Set R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET (and optionally R2_PUBLIC_BASE_URL).",
+      );
+    }
+
     // Fetch the export record
     const exportRecord = await prisma.exportFile.findUnique({
       where: { id: exportId },
@@ -54,20 +61,18 @@ export async function processExportDirectly(exportId: string) {
       type as any,
     );
 
-    // Save to local storage (development mode)
-    const exportDir = path.join(process.cwd(), "tmp", "exports", projectId);
-    await fs.mkdir(exportDir, { recursive: true });
-
-    const filePath = path.join(exportDir, filename);
-    await fs.writeFile(filePath, buffer);
-
-    // Update status to DONE with file path (using relative path as r2Key)
+    // Upload to R2 only
     const r2Key = `exports/${projectId}/${filename}`;
+    const publicUrl = await uploadToR2(r2Key, buffer, contentType);
+    console.log(`[exports] Uploaded to R2: ${r2Key}`);
+
+    // Update status to DONE with R2 key and public URL
     await prisma.exportFile.update({
       where: { id: exportId },
       data: {
         status: "DONE",
         r2Key,
+        publicUrl: publicUrl || null,
         completedAt: new Date(),
       },
     });

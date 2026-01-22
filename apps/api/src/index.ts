@@ -13,6 +13,7 @@ import { artifactRouter } from "./routes/artifact.routes";
 import { workflowRouter } from "./routes/workflow.routes";
 import { reviewRouter } from "./routes/review.routes";
 import { exportRouter } from "./routes/export.routes";
+import { downloadExport } from "./controllers/export.controller";
 import { reviewsRouter } from "./modules/reviews";
 import { checkLLMProvider } from "./llm/index";
 
@@ -64,6 +65,8 @@ app.get("/llm-health", async (_req, res) => {
     });
   }
 });
+// Public download endpoint (no auth) to avoid auth middleware conflicts
+app.get("/download/:id", (req, res) => downloadExport(req as any, res));
 
 // ✅ Mount routers TOP LEVEL (not inside any route)
 app.use("/auth", authRouter);

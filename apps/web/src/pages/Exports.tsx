@@ -67,9 +67,11 @@ export default function Exports() {
   const [exportType, setExportType] = useState("");
   const [exportId, setExportId] = useState("");
   const [exportStatus, setExportStatus] = useState("");
+  const [toastOpen, setToastOpen] = useState(false);
 
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const pollRef = useRef<number | null>(null);
 
   const selectedProject = useMemo(
@@ -167,9 +169,11 @@ export default function Exports() {
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      setExportId(data.export?.id || "");
+      const expId = data.export?.id || "";
+      console.log(`[export] Got exportId: ${expId}`);
+      setExportId(expId);
       setExportStatus("QUEUED");
-      startPolling();
+      startPolling(expId);
     } catch (e: any) {
       setErr(formatApiError(e) || "Failed to request export");
     } finally {
@@ -177,21 +181,58 @@ export default function Exports() {
     }
   }
 
-  async function checkExportStatus() {
-    if (!exportId || !orgId) return;
+  async function checkExportStatus(expIdParam?: string) {
     try {
-      const res = await fetch(`/api/projects/${projectId}/exports`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "X-Org-Id": orgId,
-        },
+      const idToCheck = expIdParam || exportId;
+      console.log(
+        `[polling] checkExportStatus called, exportId=${idToCheck}, orgId=${orgId}`,
+      );
+      if (!idToCheck || !orgId) {
+        console.log(
+          `[polling] Early exit: exportId=${idToCheck}, orgId=${orgId}`,
+        );
+        return;
+      }
+      // Query specific export first for faster, reliable status
+      let exp: ExportRow | undefined;
+      const res1 = await fetch(`/api/exports/${idToCheck}`, {
+        headers: { Authorization: `Bearer ${token}`, "X-Org-Id": orgId },
       });
-      if (!res.ok) return;
-      const data = await res.json();
-      const exp = (data.items || []).find((x: ExportRow) => x.id === exportId);
+      console.log(
+        `[polling] GET /api/exports/${idToCheck} status=${res1.status}`,
+      );
+      if (res1.ok) {
+        const d = await res1.json();
+        console.log(`[polling] Response:`, d);
+        exp = d.export as ExportRow;
+      }
+
+      // Fallback to list if single-fetch not available
+      if (!exp) {
+        console.log(
+          `[polling] Single fetch failed or returned empty, falling back to list`,
+        );
+        const res = await fetch(`/api/projects/${projectId}/exports`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-Org-Id": orgId,
+          },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const idToCheck = expIdParam || exportId;
+        exp = (data.items || []).find((x: ExportRow) => x.id === idToCheck);
+        console.log(`[polling] Found in list:`, exp);
+      }
       if (exp) {
+        console.log(`[polling] Setting status to ${exp.status}`);
         setExportStatus(exp.status);
-        if (exp.status === "DONE" || exp.status === "FAILED") {
+        if (exp.status === "DONE") {
+          setToastOpen(true);
+          stopPolling();
+        }
+        if (exp.status === "FAILED") {
+          setToastOpen(true);
           stopPolling();
         }
       }
@@ -200,17 +241,68 @@ export default function Exports() {
     }
   }
 
-  function startPolling() {
+  function startPolling(expId: string) {
+    console.log(`[polling] startPolling called with expId=${expId}`);
     stopPolling();
+    // Immediate check for faster first update
+    console.log(`[polling] Running immediate check`);
+    checkExportStatus(expId).catch(() => {});
+    // Poll faster (1s) for snappier UX
     pollRef.current = window.setInterval(() => {
-      checkExportStatus().catch(() => {});
-    }, 2000);
+      console.log(`[polling] Interval tick`);
+      checkExportStatus(expId).catch(() => {});
+    }, 1000);
   }
 
   function stopPolling() {
     if (pollRef.current) {
       window.clearInterval(pollRef.current);
       pollRef.current = null;
+    }
+  }
+
+  function pickFilenameFromDisposition(
+    disposition: string | null,
+    fallback: string,
+  ) {
+    if (!disposition) return fallback;
+    // RFC 6266 / 5987 handling
+    const matchUtf8 = disposition.match(/filename\*=(?:UTF-8''|)([^;]+)/i);
+    if (matchUtf8 && matchUtf8[1])
+      return decodeURIComponent(matchUtf8[1].replace(/"/g, ""));
+    const matchBasic = disposition.match(/filename="?([^";]+)"?/i);
+    if (matchBasic && matchBasic[1]) return matchBasic[1];
+    return fallback;
+  }
+
+  async function downloadCurrentExport() {
+    if (!exportId) return;
+    setDownloading(true);
+    setErr(null);
+    try {
+      const res = await fetch(`${apiBase()}/download/${exportId}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const contentDisposition = res.headers.get("content-disposition");
+      const filename = pickFilenameFromDisposition(
+        contentDisposition,
+        `export-${exportId}`,
+      );
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = filename;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objectUrl);
+    } catch (e: any) {
+      setErr(formatApiError(e) || "Download failed");
+    } finally {
+      setDownloading(false);
     }
   }
 
@@ -239,6 +331,7 @@ export default function Exports() {
     setExportId("");
     setExportStatus("");
     stopPolling();
+    setToastOpen(false);
   }
 
   useEffect(() => {
@@ -279,6 +372,50 @@ export default function Exports() {
           </button>
         </div>
       </div>
+
+      {/* Toast: export completion/failure */}
+      {toastOpen && exportId && (
+        <div
+          style={{
+            position: "fixed",
+            right: 20,
+            bottom: 20,
+            background: "#111827",
+            color: "#e5e7eb",
+            border: "1px solid rgba(124,124,255,0.3)",
+            borderRadius: 12,
+            padding: "14px 16px",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
+            minWidth: 260,
+            zIndex: 9999,
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>
+            {exportStatus === "DONE" ? "Export ready" : "Export failed"}
+          </div>
+          <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
+            {exportStatus === "DONE"
+              ? "Your file is ready to download."
+              : "There was a problem generating the export."}
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            {exportStatus === "DONE" && (
+              <button
+                className="primary"
+                onClick={() => {
+                  window.open(`/api/exports/${exportId}/download`, "_blank");
+                  setToastOpen(false);
+                }}
+              >
+                Download
+              </button>
+            )}
+            <button className="ghost" onClick={() => setToastOpen(false)}>
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {err && <div style={{ marginTop: 12, color: "crimson" }}>{err}</div>}
 
@@ -556,10 +693,9 @@ export default function Exports() {
                     </div>
                   )}
                   {exportStatus === "DONE" && (
-                    <a
-                      href={`${apiBase()}/exports/${exportId}/download`}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      onClick={downloadCurrentExport}
+                      disabled={downloading}
                       style={{
                         display: "inline-block",
                         marginTop: 12,
@@ -568,11 +704,12 @@ export default function Exports() {
                         color: "#000",
                         borderRadius: 8,
                         fontWeight: 700,
-                        textDecoration: "none",
+                        border: "none",
+                        cursor: downloading ? "wait" : "pointer",
                       }}
                     >
-                      📥 Download Now
-                    </a>
+                      {downloading ? "Preparing..." : "📥 Download Now"}
+                    </button>
                   )}
                   {exportStatus === "FAILED" && (
                     <div style={{ color: "crimson" }}>

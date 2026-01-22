@@ -36,6 +36,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.968.0
+        version: 3.968.0
       '@google/genai':
         specifier: ^1.36.0
         version: 1.36.0

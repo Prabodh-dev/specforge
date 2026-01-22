@@ -126,6 +126,8 @@ Desktop.ini
 
 # Prisma
 .prisma/
+/generated/prisma
+prisma/generated
 
 # Database
 *.db
@@ -148,5 +150,10 @@ pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
-/generated/prisma
-prisma/generated
+
+# Temporary exports
+tmp/
+tmp/*
+exports/
+*.tmp
+*.temp
