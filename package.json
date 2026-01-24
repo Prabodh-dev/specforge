@@ -1,7 +1,29 @@
 {
   "name": "specforge",
+  "version": "1.0.0",
+  "description": "AI-powered specification and project management platform",
   "private": true,
   "packageManager": "pnpm@9.0.0",
+  "author": "SpecForge Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/specforge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/specforge/issues"
+  },
+  "homepage": "https://github.com/yourusername/specforge#readme",
+  "keywords": [
+    "specification",
+    "project-management",
+    "ai",
+    "llm",
+    "prd",
+    "api-spec",
+    "database-schema",
+    "code-generation"
+  ],
   "workspaces": [
     "apps/*",
     "packages/*"

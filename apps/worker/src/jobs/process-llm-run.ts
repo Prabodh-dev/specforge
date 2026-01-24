@@ -1,7 +1,6 @@
 import { llmGenerate } from "../llm";
 import { jsonSchemas } from "../llm/schemas";
 
-// import your prisma client the same way you already do in worker
 import { prisma } from "../lib/prisma";
 
 const workflowToArtifact = (key: string) => {
@@ -16,7 +15,6 @@ const workflowToArtifact = (key: string) => {
     return { type: "DB_SCHEMA", isJson: true, schemaKey: "DB_SCHEMA" as const };
   if (key === "GENERATE_TASK_BREAKDOWN")
     return { type: "TASKS", isJson: true, schemaKey: "TASKS" as const };
-  // API_SPEC: huge schema, just JSON mode without schema
   if (key === "GENERATE_API_SPEC")
     return { type: "API_SPEC", isJson: true, schemaKey: null as any };
   throw new Error(`Unknown workflowKey: ${key}`);
@@ -50,10 +48,9 @@ Rules:
   if (!cfg.isJson) {
     proposedText = text;
   } else {
-    proposedJson = JSON.parse(text); // if fails → worker marks FAILED
+    proposedJson = JSON.parse(text);
   }
 
-  // Create review item (field names may match your schema; adjust if needed)
   await prisma.reviewItem.create({
     data: {
       orgId: run.orgId,

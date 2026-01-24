@@ -15,19 +15,14 @@ export function r2Enabled() {
 }
 
 export function getPublicUrl(key: string) {
-  // If PUBLIC_BASE_URL is set, use it
   if (process.env.R2_PUBLIC_BASE_URL) {
     const base = process.env.R2_PUBLIC_BASE_URL;
     return `${base.replace(/\/$/, "")}/${key}`;
   }
 
-  // Fallback: construct from R2 endpoint
-  // R2 public URL format: https://{bucket}.{subdomain}.r2.cloudflarestorage.com
-  // But we can also use: https://{account-id}.r2.cloudflarestorage.com/{bucket}/{key}
   const endpoint = process.env.R2_ENDPOINT || "";
   const bucket = process.env.R2_BUCKET || "";
 
-  // Extract base from endpoint (remove trailing slash and path)
   const baseUrl = endpoint.replace(/\/$/, "");
 
   return `${baseUrl}/${bucket}/${key}`;

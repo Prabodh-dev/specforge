@@ -38,7 +38,6 @@ export default function Reviews() {
         },
       });
 
-      // Check content type before parsing
       const contentType = res.headers.get("content-type");
       if (!contentType?.includes("application/json")) {
         throw new Error(

@@ -15,8 +15,6 @@ export async function buildExport(prisma: PrismaClient, exportId: string) {
     });
     if (!art) throw new Error(`Artifact missing: ${type}`);
 
-    // Get the latest approved version by finding the review that created it
-    // then getting the matching artifact version
     const approvedReview = await prisma.reviewItem.findFirst({
       where: {
         projectId: exp.projectId,
@@ -28,7 +26,6 @@ export async function buildExport(prisma: PrismaClient, exportId: string) {
     });
 
     if (!approvedReview) {
-      // Fallback: use latest version (for seeding/testing)
       const v = await prisma.artifactVersion.findFirst({
         where: { artifactId: art.id },
         orderBy: { version: "desc" },
@@ -37,7 +34,6 @@ export async function buildExport(prisma: PrismaClient, exportId: string) {
       return v;
     }
 
-    // Use latest version for this artifact (assuming approval workflow creates new versions)
     const v = await prisma.artifactVersion.findFirst({
       where: { artifactId: art.id },
       orderBy: { version: "desc" },
@@ -77,7 +73,6 @@ export async function buildExport(prisma: PrismaClient, exportId: string) {
     };
   }
 
-  // SCAFFOLD_ZIP
   const prd = await latestApprovedText("PRD");
   const stories = await latestApprovedText("USER_STORIES");
 

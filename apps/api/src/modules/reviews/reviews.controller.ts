@@ -7,14 +7,12 @@ type AuthedRequest = Request & {
 };
 
 function getOrgId(req: AuthedRequest): string {
-  // supports either middleware-populated req.orgId OR header used by your apiFetch
   const orgId =
     req.orgId ||
     (req.headers["x-org-id"] as string | undefined) ||
     (req.headers["X-Org-Id"] as any);
 
   if (!orgId) {
-    // keep 400 so frontend can show clear message
     throw new Error("Missing orgId (set req.orgId or send x-org-id header)");
   }
   return String(orgId);
@@ -29,13 +27,6 @@ function isJsonArtifact(type: string) {
   );
 }
 
-/**
- * GET /reviews
- * Optional query params:
- *  - status=PENDING|APPROVED|REJECTED
- *  - projectId=<id>
- *  - artifactType=PRD|USER_STORIES|OPENAPI|DB_SCHEMA|TASK_BREAKDOWN
- */
 export async function listReviews(req: AuthedRequest, res: Response) {
   try {
     const orgId = getOrgId(req);
@@ -76,12 +67,6 @@ export async function listReviews(req: AuthedRequest, res: Response) {
   }
 }
 
-/**
- * GET /reviews/:id
- * Returns:
- *  - item: review item
- *  - latest: latest ArtifactVersion of matching artifact (projectId + artifactType)
- */
 export async function getReviewDetail(req: AuthedRequest, res: Response) {
   try {
     const orgId = getOrgId(req);
@@ -134,13 +119,6 @@ export async function getReviewDetail(req: AuthedRequest, res: Response) {
   }
 }
 
-/**
- * POST /reviews/:id/approve
- * body: { reviewerNote?: string }
- *
- * Creates a new ArtifactVersion from review.outputText/outputJson
- * and marks review APPROVED.
- */
 export async function approveReview(req: AuthedRequest, res: Response) {
   try {
     const orgId = getOrgId(req);
@@ -184,7 +162,6 @@ export async function approveReview(req: AuthedRequest, res: Response) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      // Ensure artifact exists for this project + type
       let artifact = await tx.artifact.findFirst({
         where: {
           projectId: review.projectId,
@@ -197,7 +174,7 @@ export async function approveReview(req: AuthedRequest, res: Response) {
           data: {
             projectId: review.projectId,
             type: review.artifactType as any,
-            title: review.artifactType, // simple default title
+            title: review.artifactType,
           },
         });
       }
@@ -253,10 +230,6 @@ export async function approveReview(req: AuthedRequest, res: Response) {
   }
 }
 
-/**
- * POST /reviews/:id/reject
- * body: { reviewerNote?: string }
- */
 export async function rejectReview(req: AuthedRequest, res: Response) {
   try {
     const orgId = getOrgId(req);
@@ -317,7 +290,6 @@ export async function getLatestReviewForProject(req: any, res: any) {
         .json({ ok: false, error: "artifactType is required" });
     }
 
-    // org guard through project relation
     const item = await prisma.reviewItem.findFirst({
       where: {
         projectId,

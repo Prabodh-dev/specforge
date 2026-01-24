@@ -65,21 +65,17 @@ app.get("/llm-health", async (_req, res) => {
     });
   }
 });
-// Public download endpoint (no auth) to avoid auth middleware conflicts
 app.get("/download/:id", (req, res) => downloadExport(req as any, res));
 
-// ✅ Mount routers TOP LEVEL (not inside any route)
 app.use("/auth", authRouter);
 app.use("/orgs", orgRouter);
 app.use("/projects", projectRouter);
 app.use("/artifacts", artifactRouter);
 
-// these were already root-mounted in your code
 app.use(workflowRouter);
 app.use(reviewRouter);
 app.use(exportRouter);
 
-// ✅ NEW: Review Queue APIs (/reviews, /reviews/:id, approve/reject)
 app.use(reviewsRouter);
 
 app.listen(PORT, () => {

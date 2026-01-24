@@ -9,7 +9,6 @@ export default function Welcome() {
   const nav = useNavigate();
 
   useEffect(() => {
-    // If user has an org and token, go to projects
     if (token && orgId) {
       nav("/projects");
     }

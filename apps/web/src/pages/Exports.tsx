@@ -47,7 +47,6 @@ export default function Exports() {
   const { orgId } = useOrg();
   const nav = useNavigate();
 
-  // Wizard state
   const [step, setStep] = useState(1); // 1=Project, 2=Artifact, 3=Version, 4=Download
 
   const [projects, setProjects] = useState<ProjectRow[]>([]);
@@ -193,7 +192,6 @@ export default function Exports() {
         );
         return;
       }
-      // Query specific export first for faster, reliable status
       let exp: ExportRow | undefined;
       const res1 = await fetch(`/api/exports/${idToCheck}`, {
         headers: { Authorization: `Bearer ${token}`, "X-Org-Id": orgId },
@@ -207,7 +205,6 @@ export default function Exports() {
         exp = d.export as ExportRow;
       }
 
-      // Fallback to list if single-fetch not available
       if (!exp) {
         console.log(
           `[polling] Single fetch failed or returned empty, falling back to list`,
@@ -244,10 +241,8 @@ export default function Exports() {
   function startPolling(expId: string) {
     console.log(`[polling] startPolling called with expId=${expId}`);
     stopPolling();
-    // Immediate check for faster first update
     console.log(`[polling] Running immediate check`);
     checkExportStatus(expId).catch(() => {});
-    // Poll faster (1s) for snappier UX
     pollRef.current = window.setInterval(() => {
       console.log(`[polling] Interval tick`);
       checkExportStatus(expId).catch(() => {});
@@ -266,7 +261,6 @@ export default function Exports() {
     fallback: string,
   ) {
     if (!disposition) return fallback;
-    // RFC 6266 / 5987 handling
     const matchUtf8 = disposition.match(/filename\*=(?:UTF-8''|)([^;]+)/i);
     if (matchUtf8 && matchUtf8[1])
       return decodeURIComponent(matchUtf8[1].replace(/"/g, ""));
@@ -373,7 +367,6 @@ export default function Exports() {
         </div>
       </div>
 
-      {/* Toast: export completion/failure */}
       {toastOpen && exportId && (
         <div
           style={{

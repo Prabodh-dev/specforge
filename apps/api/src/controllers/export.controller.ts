@@ -65,12 +65,10 @@ export async function requestProjectExport(req: AuthedReq, res: Response) {
     },
   });
 
-  // R2-only mode: process directly in background (no queue)
   processExportDirectly(created.id).catch((err: any) => {
     console.error("[exports] Direct processing failed:", err);
   });
 
-  // Return immediately with QUEUED status - UI will poll for completion
   res.json({ ok: true, export: created });
 }
 
@@ -96,7 +94,6 @@ export async function downloadExport(req: AuthedReq, res: Response) {
     return res.status(400).json({ ok: false, error: "Export not ready" });
   }
 
-  // R2-only: must have public URL
   if (!file.publicUrl) {
     console.log(`[exports] Export ${id} has no publicUrl`);
     return res.status(400).json({
@@ -105,7 +102,6 @@ export async function downloadExport(req: AuthedReq, res: Response) {
     });
   }
 
-  // Stream from R2 to avoid browser CORS on redirect
   try {
     const r2Key = file.r2Key || file.publicUrl?.split("/").slice(-3).join("/");
     console.log(`[exports] Streaming from R2 key=${r2Key}`);
@@ -119,7 +115,6 @@ export async function downloadExport(req: AuthedReq, res: Response) {
       `attachment; filename="${encodeURIComponent(filename)}"`,
     );
     if (obj.ContentType) res.setHeader("Content-Type", obj.ContentType);
-    // @ts-ignore - Body is a stream in node
     obj.Body.pipe(res);
   } catch (e) {
     console.error(`[exports] Failed to stream from R2`, e);
@@ -127,7 +122,6 @@ export async function downloadExport(req: AuthedReq, res: Response) {
   }
 }
 
-// New: fetch single export by id (org-scoped)
 export async function getExport(req: AuthedReq, res: Response) {
   const orgId = getOrgId(req);
   const { id } = req.params;

@@ -1,5 +1,4 @@
 export function extractJsonLoose(text: string) {
-  // best-effort: find first {...} or [...]
   const firstObj = text.indexOf("{");
   const firstArr = text.indexOf("[");
   const start = [firstObj, firstArr]
@@ -10,12 +9,10 @@ export function extractJsonLoose(text: string) {
 
   const trimmed = text.slice(start).trim();
 
-  // try full parse first
   try {
     return JSON.parse(trimmed);
   } catch {}
 
-  // fallback: attempt to cut at last brace/bracket
   const lastObj = trimmed.lastIndexOf("}");
   const lastArr = trimmed.lastIndexOf("]");
   const end = Math.max(lastObj, lastArr);

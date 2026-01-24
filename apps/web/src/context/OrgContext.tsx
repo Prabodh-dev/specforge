@@ -42,7 +42,6 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
     else localStorage.removeItem(ORG_NAME_KEY);
   }
 
-  // Hydrate org name when only id is present (e.g., first load)
   useEffect(() => {
     if (!orgId || orgName || !token) return;
     (async () => {
@@ -56,9 +55,7 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
           setOrgName(found.name);
           localStorage.setItem(ORG_NAME_KEY, found.name);
         }
-      } catch {
-        // ignore hydration errors silently
-      }
+      } catch {}
     })();
   }, [orgId, orgName, token]);
 

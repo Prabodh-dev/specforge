@@ -75,7 +75,6 @@ async function buildExportBuffer(projectId: string, type: string) {
     const db = await getLatestArtifact(projectId, "DB_SCHEMA");
     const tasks = await getLatestArtifact(projectId, "TASK_BREAKDOWN");
 
-    // --- Root files ---
     zip.file(
       "README.md",
       `# SpecForge Scaffold
@@ -132,7 +131,6 @@ DATABASE_URL="postgresql://user:pass@localhost:5432/app"
 `,
     );
 
-    // --- Artifacts output ---
     zip.file("docs/prd.md", prd?.contentText ?? "");
     zip.file(
       "docs/user_stories.json",
@@ -151,7 +149,6 @@ DATABASE_URL="postgresql://user:pass@localhost:5432/app"
       JSON.stringify(tasks?.contentJson ?? {}, null, 2),
     );
 
-    // --- API (Express + TS) ---
     zip.file(
       "apps/api/package.json",
       JSON.stringify(
@@ -219,7 +216,6 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "api", time: new Date().toISOString() });
 });
 
-// Example: serve the generated OpenAPI spec
 app.get("/openapi.json", (_req, res) => {
   res.sendFile(process.cwd() + "/../../spec/openapi.json");
 });
@@ -228,7 +224,6 @@ app.listen(PORT, () => console.log(\`[api] running on http://localhost:\${PORT}\
 `,
     );
 
-    // --- Web (Vite + React) ---
     zip.file(
       "apps/web/package.json",
       JSON.stringify(
@@ -392,7 +387,6 @@ export function startExportWorker() {
           return;
         }
 
-        // local dev fallback
         const localRoot = path.resolve(process.cwd(), "../../tmp/exports");
 
         ensureDir(path.join(localRoot, path.dirname(key)));

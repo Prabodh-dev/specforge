@@ -229,9 +229,6 @@ Output ONLY valid JSON, no markdown.`;
   return base;
 }
 
-/**
- * Health check for Ollama provider
- */
 export async function ollamaHealthCheck(): Promise<{
   status: "ok" | "error";
   message: string;

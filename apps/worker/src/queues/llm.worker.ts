@@ -102,7 +102,6 @@ if (connection) {
       const run = await prisma.lLMRun.findUnique({ where: { id: llmRunId } });
       if (!run) throw new Error("LLMRun not found");
 
-      // idempotent
       const existing = await prisma.reviewItem.findFirst({
         where: { llmRunId: run.id },
       });

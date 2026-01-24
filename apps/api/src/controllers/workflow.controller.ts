@@ -21,7 +21,6 @@ export async function runWorkflow(req: OrgAuthedRequest, res: Response) {
     return res.status(400).json({ ok: false, error: "Invalid workflowKey" });
   }
 
-  // Ensure project belongs to org
   const project = await prisma.project.findFirst({
     where: { id: projectId, orgId: req.org!.id },
     select: { id: true, name: true, description: true },
@@ -35,7 +34,6 @@ export async function runWorkflow(req: OrgAuthedRequest, res: Response) {
 
   const artifactType = WORKFLOW_TO_ARTIFACT[workflowKey];
 
-  // Collect context: previous approved versions of artifacts
   const previousArtifacts = await prisma.artifact.findMany({
     where: { projectId },
     select: {
@@ -55,7 +53,6 @@ export async function runWorkflow(req: OrgAuthedRequest, res: Response) {
   const llmResult = await generateWithLLM(artifactType, parsed.data);
   const latencyMs = Date.now() - t0;
 
-  // Store run metrics (best-effort). If DB schema is out of sync, skip.
   let run: { id: string; createdAt: Date } | null = null;
   try {
     run = await prisma.lLMRun.create({
@@ -74,7 +71,6 @@ export async function runWorkflow(req: OrgAuthedRequest, res: Response) {
     console.warn("[llmRun.create] skipped due to schema mismatch:", e);
   }
 
-  // Create review item (PENDING)
   const review = await prisma.reviewItem.create({
     data: {
       projectId,

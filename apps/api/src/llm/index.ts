@@ -17,7 +17,6 @@ export async function generateWithLLM(
     return mockGenerate(type, input);
   }
 
-  // Fallback
   return {
     outputText: `LLM provider "${provider}" not supported. Use 'ollama' or 'mock'.`,
     meta: { model: provider },

@@ -42,13 +42,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isBooting, setIsBooting] = useState(true);
 
-  // persist token
   useEffect(() => {
     if (token) localStorage.setItem(TOKEN_KEY, token);
     else localStorage.removeItem(TOKEN_KEY);
   }, [token]);
 
-  // Boot: try /me, if fails try /refresh then /me
   useEffect(() => {
     let cancelled = false;
 
@@ -64,7 +62,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         console.log("No token, trying refresh");
-        // token missing -> try refresh using cookie
         const refreshed = await refreshApi();
         if (cancelled) return;
         setToken(refreshed.accessToken);

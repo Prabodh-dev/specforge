@@ -4,10 +4,6 @@ import * as path from "path";
 import JSZip from "jszip";
 import { r2Enabled, uploadToR2, getPublicUrl } from "../lib/r2";
 
-/**
- * Get the latest artifact version for a project and type.
- * Duplicated from worker for direct processing.
- */
 async function getLatestArtifact(projectId: string, type: any) {
   const artifact = await prisma.artifact.findFirst({
     where: { projectId, type },
@@ -23,10 +19,6 @@ async function getLatestArtifact(projectId: string, type: any) {
   return latest ?? null;
 }
 
-/**
- * Process an export directly without going through the queue.
- * Used as a fallback when Redis is not available (development mode).
- */
 export async function processExportDirectly(exportId: string) {
   try {
     console.log(`[exports] Processing export ${exportId} directly`);
@@ -37,7 +29,6 @@ export async function processExportDirectly(exportId: string) {
       );
     }
 
-    // Fetch the export record
     const exportRecord = await prisma.exportFile.findUnique({
       where: { id: exportId },
       include: { project: true },
@@ -47,7 +38,6 @@ export async function processExportDirectly(exportId: string) {
       throw new Error(`Export ${exportId} not found`);
     }
 
-    // Update status to PROCESSING
     await prisma.exportFile.update({
       where: { id: exportId },
       data: { status: "PROCESSING" },
@@ -55,18 +45,15 @@ export async function processExportDirectly(exportId: string) {
 
     const { projectId, type } = exportRecord;
 
-    // Build the export buffer based on type
     const { buffer, filename, contentType } = await buildExportBuffer(
       projectId,
       type as any,
     );
 
-    // Upload to R2 only
     const r2Key = `exports/${projectId}/${filename}`;
     const publicUrl = await uploadToR2(r2Key, buffer, contentType);
     console.log(`[exports] Uploaded to R2: ${r2Key}`);
 
-    // Update status to DONE with R2 key and public URL
     await prisma.exportFile.update({
       where: { id: exportId },
       data: {
@@ -81,7 +68,6 @@ export async function processExportDirectly(exportId: string) {
   } catch (error: any) {
     console.error(`[exports] Failed to process export ${exportId}:`, error);
 
-    // Update status to FAILED
     await prisma.exportFile
       .update({
         where: { id: exportId },
@@ -100,10 +86,6 @@ export async function processExportDirectly(exportId: string) {
   }
 }
 
-/**
- * Build export buffer for a given project and export type.
- * Duplicates logic from the worker for direct processing.
- */
 async function buildExportBuffer(
   projectId: string,
   type: "PRD_MD" | "API_SPEC_JSON" | "DB_SCHEMA_JSON" | "SCAFFOLD_ZIP",
@@ -155,12 +137,10 @@ async function buildExportBuffer(
     }
 
     case "SCAFFOLD_ZIP": {
-      // For scaffold, we need all artifacts
       const prd = await getLatestArtifact(projectId, "PRD");
       const apiSpec = await getLatestArtifact(projectId, "API_SPEC");
       const dbSchema = await getLatestArtifact(projectId, "DB_SCHEMA");
 
-      // Create a ZIP with all artifacts
       const buffer = await createScaffoldZip(projectId, prd, apiSpec, dbSchema);
       return {
         buffer,
@@ -174,9 +154,6 @@ async function buildExportBuffer(
   }
 }
 
-/**
- * Create a ZIP file containing all artifacts for scaffold export.
- */
 async function createScaffoldZip(
   projectId: string,
   prd: any,
@@ -185,22 +162,18 @@ async function createScaffoldZip(
 ): Promise<Buffer> {
   const zip = new JSZip();
 
-  // Add PRD as markdown
   if (prd?.contentText) {
     zip.file("PRD.md", prd.contentText);
   }
 
-  // Add API Spec as JSON
   if (apiSpec?.contentJson) {
     zip.file("api-spec.json", JSON.stringify(apiSpec.contentJson, null, 2));
   }
 
-  // Add DB Schema as JSON
   if (dbSchema?.contentJson) {
     zip.file("db-schema.json", JSON.stringify(dbSchema.contentJson, null, 2));
   }
 
-  // Add a README
   const readme = `# Project Scaffold: ${projectId}
 
 This package contains all the approved artifacts for your project:
@@ -213,7 +186,6 @@ Generated on: ${new Date().toISOString()}
 `;
   zip.file("README.md", readme);
 
-  // Generate the ZIP buffer
   return await zip.generateAsync({
     type: "nodebuffer",
     compression: "DEFLATE",

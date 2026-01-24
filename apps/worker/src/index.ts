@@ -8,6 +8,5 @@ dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
 console.log("[worker] Starting workers...");
 console.log("[worker] LLM worker online");
 
-// Start export worker
 startExportWorker();
 console.log("[worker] Export worker online");

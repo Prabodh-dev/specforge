@@ -28,7 +28,7 @@ export async function geminiGenerate(opts: {
               responseMimeType: "application/json",
               responseJsonSchema: opts.jsonSchema,
             }
-          : { responseMimeType: "application/json" }, // for OPENAPI: at least force JSON
+          : { responseMimeType: "application/json" },
       });
 
       return res.text ?? "";
@@ -47,7 +47,6 @@ export async function geminiGenerate(opts: {
         continue;
       }
 
-      // Non-rate-limit error or last attempt
       console.error("[Gemini Worker] Error:", error?.message);
       throw error;
     }

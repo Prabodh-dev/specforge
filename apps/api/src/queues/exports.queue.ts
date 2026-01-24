@@ -9,13 +9,11 @@ export const exportQueue = connection
   : null;
 
 export async function enqueueExport(exportId: string) {
-  // If queue not constructed, bail out
   if (!exportQueue) {
     console.warn("[exports] Queue not available - Redis not connected");
     return false;
   }
 
-  // Quick connectivity check: ensure Redis client is ready
   const conn: any = getRedisConnection();
   const status = conn?.status ?? "unknown";
   if (!conn || status !== "ready") {

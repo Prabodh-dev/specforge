@@ -276,8 +276,6 @@ export default function ProjectWorkspace() {
         body: { idea },
       });
 
-      // If you added latest-review endpoint earlier, keep this.
-      // If not, it will fallback to /reviews.
       try {
         const latest = await apiFetch<{
           ok: true;

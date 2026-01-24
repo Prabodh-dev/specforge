@@ -1,14 +1,11 @@
-// Human-friendly error formatting for API responses
 export function formatApiError(err: any): string {
   try {
     if (!err) return "Something went wrong.";
 
     if (typeof err === "string") return prettify(err);
 
-    // If server returned a string inside { message }
     if (typeof err.message === "string") return prettify(err.message);
 
-    // Zod-style error shape: { formErrors: [], fieldErrors: { field: [msg, ...] } }
     const fieldErrors = (err.fieldErrors || err.errors || null) as Record<
       string,
       string[]
@@ -31,7 +28,6 @@ export function formatApiError(err: any): string {
 
     if (parts.length) return parts.join(" \u2022 ");
 
-    // Generic object -> stringify safely
     return prettify(JSON.stringify(err));
   } catch {
     return "Unexpected error. Please try again.";
@@ -54,7 +50,6 @@ function capitalize(s: string): string {
 
 function prettify(msg: string): string {
   let m = msg;
-  // Common Zod messages -> friendlier copy
   m = m.replace(
     /Too small: expected string to have >=\s*2 characters/gi,
     "must be at least 2 characters",
@@ -70,7 +65,6 @@ function prettify(msg: string): string {
   m = m.replace(/Invalid string: must match pattern[^\n]*/gi, "invalid format");
   m = m.replace(/Invalid input/gi, "invalid value");
 
-  // Trim noisy characters
   m = m.replace(/^\{+|\}+$/g, "");
   return m.trim();
 }

@@ -94,7 +94,6 @@ export async function geminiGenerate(
         continue;
       }
 
-      // Non-rate-limit error or last attempt
       console.error("[Gemini] Error:", error?.message);
       throw error;
     }

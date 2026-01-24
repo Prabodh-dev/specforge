@@ -1,10 +1,7 @@
-// Terminology mapping for user-friendly UI
 export const TERMINOLOGY = {
-  // Document types (instead of "artifacts")
   artifact: "Document",
   artifacts: "Documents",
 
-  // Workflow labels (user-friendly) with descriptions
   workflows: [
     {
       key: "GENERATE_PRD",
@@ -38,7 +35,6 @@ export const TERMINOLOGY = {
     },
   ],
 
-  // Export types with descriptions
   exports: [
     {
       type: "PRD_MD",
@@ -62,14 +58,12 @@ export const TERMINOLOGY = {
     },
   ],
 
-  // Review statuses
   reviewStatus: {
     PENDING: "Waiting for approval",
     APPROVED: "✓ Approved",
     REJECTED: "✗ Rejected",
   },
 
-  // Export statuses
   exportStatus: {
     QUEUED: "Preparing...",
     PROCESSING: "In progress...",
