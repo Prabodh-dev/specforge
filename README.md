@@ -206,4 +206,4 @@ For questions or support, please open an issue on GitHub.
 
 ---
 
-Built with ❤️ by the SpecForge team
+Built with ❤️ by me
