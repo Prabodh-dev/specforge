@@ -27,7 +27,12 @@ export const env = {
     | "gemini",
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
-  REDIS_URL: must("REDIS_URL"),
+  REDIS_URL: (() => {
+    const url = process.env.REDIS_URL || process.env.UPSTASH_REDIS_URL || "";
+    if (!url)
+      throw new Error("Missing env var: REDIS_URL or UPSTASH_REDIS_URL");
+    return url;
+  })(),
 
   R2_ENDPOINT: process.env.R2_ENDPOINT || "",
   R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID || "",

@@ -3,9 +3,11 @@ import IORedis from "ioredis";
 let redisClient: IORedis | null = null;
 
 export function getRedisConnection() {
-  const url = process.env.REDIS_URL;
+  const url = process.env.REDIS_URL || process.env.UPSTASH_REDIS_URL || "";
   if (!url) {
-    console.warn("[redis] REDIS_URL not set - queue features disabled");
+    console.warn(
+      "[redis] REDIS_URL/UPSTASH_REDIS_URL not set - queue features disabled",
+    );
     return null;
   }
 
